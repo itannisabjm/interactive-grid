@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.0.1
+/* InteractiveGrid v1.1.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -29,6 +29,9 @@
     markStrokeWidth: 5,
     lineColor: '#18a94d',
     markColor: '#111',
+    permanentLineWidth: 4,
+    permanentTextOffset: 24,
+    permanentTextFontFamily: 'Arial, Helvetica, sans-serif',
     onChange: null,
     onSelect: null
   };
@@ -46,6 +49,23 @@
     });
   }
 
+  function clonePermanent(items) {
+    return items.map(function (item) {
+      return {
+        id: item.id,
+        from: { x: item.from.x, y: item.from.y, type: item.from.type },
+        to: { x: item.to.x, y: item.to.y, type: item.to.type },
+        lineColor: item.lineColor,
+        lineWidth: item.lineWidth,
+        text: item.text,
+        textColor: item.textColor,
+        textSize: item.textSize,
+        textOffset: item.textOffset,
+        textFontFamily: item.textFontFamily
+      };
+    });
+  }
+
   function isValidType(type) { return type === 'dot' || type === 'x'; }
 
   function InteractiveGrid(target, options) {
@@ -55,6 +75,8 @@
 
     this.options = merge(DEFAULTS, options || {});
     this.points = [];
+    this.permanentData = [];
+    this._permanentSeq = 0;
     this.history = [];
     this.pendingCell = null;
     this.destroyed = false;
@@ -354,10 +376,83 @@
     return el;
   };
 
+  InteractiveGrid.prototype._drawMark = function (p, type, color, options) {
+    options = options || {};
+    if (type === 'dot') {
+      this._svg('circle', {
+        cx: p.px,
+        cy: p.py,
+        r: options.markSize != null ? options.markSize : this.options.markSize,
+        fill: color
+      });
+      return;
+    }
+    if (type === 'x') {
+      var s = options.xMarkSize != null ? options.xMarkSize : this.options.xMarkSize;
+      var sw = options.markStrokeWidth != null ? options.markStrokeWidth : this.options.markStrokeWidth;
+      this._svg('line', { x1:p.px-s, y1:p.py-s, x2:p.px+s, y2:p.py+s, stroke:color, 'stroke-width':sw, 'stroke-linecap':'round' });
+      this._svg('line', { x1:p.px+s, y1:p.py-s, x2:p.px-s, y2:p.py+s, stroke:color, 'stroke-width':sw, 'stroke-linecap':'round' });
+    }
+  };
+
+  InteractiveGrid.prototype._renderPermanent = function () {
+    for (var i = 0; i < this.permanentData.length; i++) {
+      var item = this.permanentData[i];
+      var ia = this._internalXY(item.from.x, item.from.y);
+      var ib = this._internalXY(item.to.x, item.to.y);
+      var p1 = this._coords(ia.x, ia.y);
+      var p2 = this._coords(ib.x, ib.y);
+
+      this._svg('line', {
+        x1: p1.px,
+        y1: p1.py,
+        x2: p2.px,
+        y2: p2.py,
+        stroke: item.lineColor,
+        'stroke-width': item.lineWidth,
+        'stroke-linecap': 'round',
+        'data-permanent-id': item.id
+      });
+
+      this._drawMark(p1, item.from.type, this.options.markColor);
+      this._drawMark(p2, item.to.type, this.options.markColor);
+
+      if (item.text) {
+        var ax = p1.px, ay = p1.py, bx = p2.px, by = p2.py;
+        // Orientasikan perhitungan dari kiri ke kanan supaya "atas" konsisten.
+        if (bx < ax) { var tx=ax; ax=bx; bx=tx; var ty=ay; ay=by; by=ty; }
+        var dx = bx - ax, dy = by - ay;
+        var len = Math.sqrt(dx*dx + dy*dy) || 1;
+        var mx = (ax + bx) / 2;
+        var my = (ay + by) / 2;
+        var nx = dy / len;
+        var ny = -dx / len;
+        var textX = mx + nx * item.textOffset;
+        var textY = my + ny * item.textOffset;
+        var angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        if (angle > 90 || angle < -90) angle += 180;
+        var textEl = this._svg('text', {
+          x: textX,
+          y: textY,
+          fill: item.textColor,
+          'font-size': item.textSize,
+          'font-family': item.textFontFamily,
+          'text-anchor': 'middle',
+          'dominant-baseline': 'middle',
+          transform: 'rotate(' + angle + ' ' + textX + ' ' + textY + ')',
+          'data-permanent-id': item.id
+        });
+        textEl.textContent = item.text;
+      }
+    }
+  };
+
   InteractiveGrid.prototype.render = function () {
     if (this.destroyed) return this;
     var ov = this.dom.overlay;
     while (ov.firstChild) ov.removeChild(ov.firstChild);
+
+    this._renderPermanent();
 
     for (var i = 1; i < this.points.length; i++) {
       var a = this._internalXY(this.points[i - 1].x, this.points[i - 1].y);
@@ -370,13 +465,8 @@
       var pt = this.points[j];
       var ii = this._internalXY(pt.x, pt.y);
       var p = this._coords(ii.x, ii.y);
-      if (pt.types.indexOf('dot') >= 0) this._svg('circle', { cx:p.px, cy:p.py, r:this.options.markSize, fill:this.options.markColor });
-      if (pt.types.indexOf('x') >= 0) {
-        var s = this.options.xMarkSize;
-        var sw = this.options.markStrokeWidth;
-        this._svg('line', { x1:p.px-s, y1:p.py-s, x2:p.px+s, y2:p.py+s, stroke:this.options.markColor, 'stroke-width':sw, 'stroke-linecap':'round' });
-        this._svg('line', { x1:p.px+s, y1:p.py-s, x2:p.px-s, y2:p.py+s, stroke:this.options.markColor, 'stroke-width':sw, 'stroke-linecap':'round' });
-      }
+      if (pt.types.indexOf('dot') >= 0) this._drawMark(p, 'dot', this.options.markColor);
+      if (pt.types.indexOf('x') >= 0) this._drawMark(p, 'x', this.options.markColor);
     }
 
     var total = this.points.reduce(function (n, p) { return n + p.types.length; }, 0);
@@ -414,6 +504,130 @@
     this.render(); // otomatis menyambung koordinat sebelum & sesudah yang dihapus
     this._emitChange('remove');
     return this;
+  };
+
+  InteractiveGrid.prototype._normalizePermanentItem = function (item, fallbackId) {
+    item = item || {};
+    var from = item.from || {};
+    var to = item.to || {};
+    var fx = Number(from.x), fy = Number(from.y), tx = Number(to.x), ty = Number(to.y);
+    if (!this._validCoord(fx, fy) || !this._validCoord(tx, ty)) {
+      throw new Error('InteractiveGrid: koordinat permanent line di luar area grid.');
+    }
+    var fromType = isValidType(from.type) ? from.type : 'dot';
+    var toType = isValidType(to.type) ? to.type : 'dot';
+    var id = item.id != null && String(item.id).trim() ? String(item.id) : fallbackId;
+    return {
+      id: id,
+      from: { x: fx, y: fy, type: fromType },
+      to: { x: tx, y: ty, type: toType },
+      lineColor: item.lineColor || this.options.lineColor,
+      lineWidth: Number(item.lineWidth) > 0 ? Number(item.lineWidth) : this.options.permanentLineWidth,
+      text: item.text == null ? '' : String(item.text),
+      textColor: item.textColor || this.options.markColor,
+      textSize: Number(item.textSize) > 0 ? Number(item.textSize) : 28,
+      textOffset: Number.isFinite(Number(item.textOffset)) ? Number(item.textOffset) : this.options.permanentTextOffset,
+      textFontFamily: item.textFontFamily || this.options.permanentTextFontFamily
+    };
+  };
+
+  InteractiveGrid.prototype.addPermanentLine = function (config) {
+    this._permanentSeq += 1;
+    var item = this._normalizePermanentItem(config, 'permanent-' + this._permanentSeq);
+    for (var i = 0; i < this.permanentData.length; i++) {
+      if (this.permanentData[i].id === item.id) {
+        throw new Error('InteractiveGrid.addPermanentLine: id "' + item.id + '" sudah digunakan.');
+      }
+    }
+    this.permanentData.push(item);
+    this.render();
+    return item.id;
+  };
+
+  InteractiveGrid.prototype.setPermanentData = function (data) {
+    if (!Array.isArray(data)) throw new Error('InteractiveGrid.setPermanentData: data harus berupa array.');
+    var normalized = [];
+    var ids = {};
+    for (var i = 0; i < data.length; i++) {
+      this._permanentSeq += 1;
+      var item = this._normalizePermanentItem(data[i], 'permanent-' + this._permanentSeq);
+      if (ids[item.id]) throw new Error('InteractiveGrid.setPermanentData: id permanent harus unik: ' + item.id);
+      ids[item.id] = true;
+      normalized.push(item);
+    }
+    this.permanentData = normalized;
+    this.render();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getPermanentData = function () {
+    return clonePermanent(this.permanentData);
+  };
+
+  InteractiveGrid.prototype.getPermanentLine = function (id) {
+    id = String(id);
+    for (var i = 0; i < this.permanentData.length; i++) {
+      if (this.permanentData[i].id === id) return clonePermanent([this.permanentData[i]])[0];
+    }
+    return null;
+  };
+
+  InteractiveGrid.prototype.updatePermanentLine = function (id, patch) {
+    id = String(id);
+    for (var i = 0; i < this.permanentData.length; i++) {
+      if (this.permanentData[i].id === id) {
+        var current = this.permanentData[i];
+        patch = patch || {};
+        var merged = {
+          id: id,
+          from: patch.from || current.from,
+          to: patch.to || current.to,
+          lineColor: patch.lineColor != null ? patch.lineColor : current.lineColor,
+          lineWidth: patch.lineWidth != null ? patch.lineWidth : current.lineWidth,
+          text: patch.text != null ? patch.text : current.text,
+          textColor: patch.textColor != null ? patch.textColor : current.textColor,
+          textSize: patch.textSize != null ? patch.textSize : current.textSize,
+          textOffset: patch.textOffset != null ? patch.textOffset : current.textOffset,
+          textFontFamily: patch.textFontFamily != null ? patch.textFontFamily : current.textFontFamily
+        };
+        this.permanentData[i] = this._normalizePermanentItem(merged, id);
+        this.render();
+        return this;
+      }
+    }
+    return this;
+  };
+
+  InteractiveGrid.prototype.removePermanentLine = function (id) {
+    id = String(id);
+    this.permanentData = this.permanentData.filter(function (item) { return item.id !== id; });
+    this.render();
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearPermanentData = function () {
+    this.permanentData = [];
+    this.render();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getAllData = function () {
+    return { points: this.getData(), permanent: this.getPermanentData() };
+  };
+
+  InteractiveGrid.prototype.setAllData = function (state, options) {
+    state = state || {};
+    this.setPermanentData(Array.isArray(state.permanent) ? state.permanent : []);
+    this.setData(Array.isArray(state.points) ? state.points : [], options || {});
+    return this;
+  };
+
+  InteractiveGrid.prototype.toFullJSON = function () {
+    return JSON.stringify(this.getAllData());
+  };
+
+  InteractiveGrid.prototype.fromFullJSON = function (json, options) {
+    return this.setAllData(typeof json === 'string' ? JSON.parse(json) : json, options);
   };
 
   InteractiveGrid.prototype.getData = function () { return clonePoints(this.points); };
@@ -483,6 +697,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.0.1';
+  InteractiveGrid.VERSION = '1.1.0';
   return InteractiveGrid;
 });

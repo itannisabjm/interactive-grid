@@ -1,5 +1,7 @@
 # InteractiveGrid
 
+**Versi: 1.1.0**
+
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
 Fitur utama:
@@ -10,6 +12,7 @@ Fitur utama:
 - Jika sebuah koordinat dihapus seluruhnya, garis otomatis menyambungkan koordinat sebelum dan sesudahnya.
 - Bisa menghapus hanya ● atau hanya X pada koordinat yang memiliki dua tanda.
 - API untuk tambah/hapus/get/set/clear/undo/JSON.
+- **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
 - Bisa digunakan pada HTML biasa, PHP, React, Laravel, Vue, Next.js, dan aplikasi web lain.
@@ -51,6 +54,30 @@ Pastikan ketiga file berada dalam folder `interactive-grid`.
     grid.addPoint(1, 4, 'dot');
     grid.addPoint(3, 7, 'x');
     grid.addPoint(5, 5, 'dot');
+
+    grid.addPermanentLine({
+      id: 'waspada',
+
+      from: {
+        x: 2,
+        y: 2,
+        type: 'dot'
+      },
+
+      to: {
+        x: 8,
+        y: 8,
+        type: 'dot'
+      },
+
+      lineColor: '#FF0000',
+      lineWidth: 4,
+
+      text: 'waspada',
+      textColor: '#111111',
+      textSize: 34,
+      textOffset: 26
+    });
   </script>
 </body>
 </html>
@@ -200,6 +227,158 @@ export default function App() {
 ```
 
 > Pada Next.js, komponen pembungkus harus berjalan di client (`'use client'`) karena plugin menggunakan DOM/browser.
+
+## Permanent line / data permanen
+
+Fitur **data permanen** digunakan untuk membuat garis referensi yang tidak ikut berubah saat pengguna menambah, menghapus, atau melakukan `undo()` pada titik interaktif. Cocok untuk garis batas seperti **Waspada**, **Normal**, **Target**, atau garis acuan lain.
+
+Satu item permanent line selalu mempunyai **tepat 2 titik koordinat**. Masing-masing titik dapat menggunakan tanda `dot` atau `x`.
+
+Contoh seperti gambar: titik `(2,2)` dan `(8,8)`, garis hijau, serta tulisan **waspada** sedikit di atas garis:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11
+});
+
+grid.addPermanentLine({
+  id: 'waspada',
+  from: { x: 2, y: 2, type: 'dot' },
+  to:   { x: 8, y: 8, type: 'dot' },
+
+  lineColor: '#20a957',
+  lineWidth: 4,
+
+  text: 'waspada',
+  textColor: '#111111',
+  textSize: 34,
+  textOffset: 26
+});
+```
+
+Teks otomatis diputar mengikuti kemiringan garis dan ditempatkan sedikit di atas garis. `textOffset` mengatur jaraknya dalam pixel.
+
+Marker kedua ujung boleh berbeda:
+
+```javascript
+grid.addPermanentLine({
+  id: 'batas-1',
+  from: { x: 1, y: 4, type: 'dot' },
+  to:   { x: 7, y: 7, type: 'x' },
+  lineColor: '#d97706',
+  text: 'Batas',
+  textColor: '#b91c1c',
+  textSize: 24
+});
+```
+
+### Banyak permanent line sekaligus
+
+```javascript
+grid.setPermanentData([
+  {
+    id: 'waspada',
+    from: { x: 2, y: 2, type: 'dot' },
+    to: { x: 8, y: 8, type: 'dot' },
+    lineColor: '#20a957',
+    text: 'waspada',
+    textColor: '#111',
+    textSize: 34,
+    textOffset: 26
+  },
+  {
+    id: 'target',
+    from: { x: 9, y: 3, type: 'x' },
+    to: { x: 14, y: 6, type: 'dot' },
+    lineColor: '#2563eb',
+    text: 'target',
+    textColor: '#2563eb',
+    textSize: 22
+  }
+]);
+```
+
+### API permanent line
+
+```javascript
+// Tambah satu garis permanen. Mengembalikan id.
+const id = grid.addPermanentLine(config);
+
+// Ganti seluruh data permanen.
+grid.setPermanentData(array);
+
+// Ambil seluruh data permanen.
+const permanent = grid.getPermanentData();
+
+// Ambil satu garis permanen.
+const line = grid.getPermanentLine('waspada');
+
+// Update tanpa membuat ulang garis.
+grid.updatePermanentLine('waspada', {
+  text: 'WASPADA',
+  lineColor: '#ef4444',
+  textColor: '#ef4444',
+  textSize: 30
+});
+
+// Hapus satu permanent line.
+grid.removePermanentLine('waspada');
+
+// Hapus semua permanent line.
+grid.clearPermanentData();
+```
+
+`clear()` hanya menghapus **titik interaktif**. Data permanen tetap ada. Begitu juga `undo()` hanya mengembalikan riwayat titik interaktif, sehingga garis referensi tidak ikut hilang. Untuk menghapus data permanen gunakan `removePermanentLine()` atau `clearPermanentData()`.
+
+### Menyimpan titik interaktif + permanent line sekaligus
+
+API lama `getData()` dan `toJSON()` tetap hanya mengembalikan data titik interaktif agar kompatibel dengan versi sebelumnya. Untuk menyimpan seluruh keadaan grafik gunakan:
+
+```javascript
+const state = grid.getAllData();
+
+// hasil:
+// {
+//   points: [...],
+//   permanent: [...]
+// }
+
+const json = grid.toFullJSON();
+```
+
+Untuk memuat kembali:
+
+```javascript
+grid.setAllData(state, { silent: true });
+// atau
+grid.fromFullJSON(json, { silent: true });
+```
+
+Contoh format data lengkap:
+
+```json
+{
+  "points": [
+    { "x": 3, "y": 5, "types": ["x"] }
+  ],
+  "permanent": [
+    {
+      "id": "waspada",
+      "from": { "x": 2, "y": 2, "type": "dot" },
+      "to": { "x": 8, "y": 8, "type": "dot" },
+      "lineColor": "#20a957",
+      "lineWidth": 4,
+      "text": "waspada",
+      "textColor": "#111111",
+      "textSize": 34,
+      "textOffset": 26,
+      "textFontFamily": "Arial, Helvetica, sans-serif"
+    }
+  ]
+}
+```
+
 
 ## Format data
 
@@ -482,3 +661,23 @@ Kode ini dapat digunakan dan dimodifikasi pada proyek internal Anda. Jika nantin
 - Menambah ruang atas agar label Y tertinggi tidak terpotong.
 - Menambah ruang kanan agar label X terakhir tetap terlihat.
 - Menambahkan garis batas kanan dan bawah pada area grid, sehingga koordinat terakhir (mis. X=16 dan Y=0) memiliki garis yang jelas.
+
+
+## Opsi tambahan v1.1.0
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  // ...opsi lama...
+  permanentLineWidth: 4,
+  permanentTextOffset: 24,
+  permanentTextFontFamily: 'Arial, Helvetica, sans-serif'
+});
+```
+
+Nilai di atas menjadi default jika properti yang sama tidak diberikan pada masing-masing permanent line.
+
+## Catatan integrasi database
+
+Untuk aplikasi PHP/React/SIMRS, disarankan menyimpan `grid.getAllData()` sebagai JSON jika permanent line berbeda untuk setiap record/pasien/form. Jika permanent line adalah standar tetap aplikasi, Anda juga dapat menyimpannya di konfigurasi frontend dan hanya menyimpan `grid.getData()` ke database.
+
+Jika data berasal dari backend, selalu lakukan validasi koordinat, tipe marker (`dot`/`x`), warna, ukuran teks, dan panjang teks di sisi server sebelum menyimpannya.
