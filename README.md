@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.2.0**
+**Versi: 1.2.1**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -12,7 +12,7 @@ Fitur utama:
 - Jika sebuah koordinat dihapus seluruhnya, garis otomatis menyambungkan koordinat sebelum dan sesudahnya.
 - Bisa menghapus hanya ● atau hanya X pada koordinat yang memiliki dua tanda.
 - API untuk tambah/hapus/get/set/clear/undo/JSON.
-- Penanda biasa/interaktif dapat diatur **warna, ukuran dot, ukuran X, dan ketebalan X**, secara global maupun per tanda.
+- Penanda biasa/interaktif dapat diatur **warna umum (`markColor`), warna khusus dot (`dotColor`), warna khusus X (`xColor`), ukuran dot, ukuran X, dan ketebalan X**, secara global maupun per tanda.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
@@ -766,6 +766,8 @@ const grid = new InteractiveGrid('#grafik', {
 
   // default penanda biasa/interaktif
   markColor: '#111',
+  dotColor: null, // jika null/kosong -> memakai markColor
+  xColor: null,   // jika null/kosong -> memakai markColor
   dotSize: 10,
   xSize: 13,
   markStrokeWidth: 5,
@@ -782,11 +784,13 @@ const grid = new InteractiveGrid('#grafik', {
 
 ### Style default penanda biasa
 
-Empat opsi utama untuk penanda yang dibuat pengguna:
+Opsi utama untuk penanda yang dibuat pengguna:
 
 | Opsi | Fungsi |
 |---|---|
-| `markColor` | warna default `dot` dan `x` |
+| `markColor` | warna fallback/default untuk `dot` dan `x` |
+| `dotColor` | warna global khusus `dot`; jika tidak diisi/null/kosong maka memakai `markColor` |
+| `xColor` | warna global khusus `x`; jika tidak diisi/null/kosong maka memakai `markColor` |
 | `dotSize` | radius tanda bulat dalam pixel |
 | `xSize` | setengah panjang diagonal tanda X dalam pixel |
 | `markStrokeWidth` | ketebalan garis tanda X dalam pixel |
@@ -795,7 +799,9 @@ Contoh:
 
 ```javascript
 const grid = new InteractiveGrid('#grafik', {
-  markColor: '#0f172a',
+  markColor: '#111111',
+  dotColor: '#2563eb',
+  xColor: '#dc2626',
   dotSize: 12,
   xSize: 17,
   markStrokeWidth: 6
@@ -803,6 +809,35 @@ const grid = new InteractiveGrid('#grafik', {
 ```
 
 `markSize` dan `xMarkSize` dari versi lama masih didukung sebagai alias untuk `dotSize` dan `xSize`, tetapi untuk kode baru disarankan menggunakan `dotSize` dan `xSize`.
+
+Urutan prioritas warna penanda biasa adalah:
+
+1. Warna khusus per tanda (`style.color`) jika diberikan melalui API seperti `addPoint()` / `updatePointMark()`.
+2. `dotColor` untuk penanda `dot`, atau `xColor` untuk penanda `x`.
+3. `markColor` sebagai fallback terakhir.
+
+Contoh yang diminta:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+  xAxisTitle: 'Waktu',
+  xAxisSubtitle: '(Jam)',
+
+  lineColor: '#18a94d',
+  lineWidth: 4,
+
+  markColor: '#111111',
+  xColor: '#dc2626',
+  dotColor: '#2563eb',
+  dotSize: 6,
+  xSize: 7,
+  markStrokeWidth: 6
+});
+```
+
+Jika `xColor` dihapus, `null`, atau string kosong, warna X otomatis memakai `markColor`. Hal yang sama berlaku untuk `dotColor`.
 
 ### Arti `columns` dan `rows`
 
@@ -902,6 +937,13 @@ Kode ini dapat digunakan dan dimodifikasi pada proyek internal Anda. Jika nantin
 
 
 ## Changelog
+
+### v1.2.1
+- Menambahkan `xColor` sebagai warna global khusus penanda X.
+- Menambahkan `dotColor` sebagai warna global khusus penanda titik bulat.
+- Jika `xColor` / `dotColor` tidak diisi, `null`, atau string kosong, warna otomatis fallback ke `markColor`.
+- Style warna khusus per tanda (`style.color`) tetap memiliki prioritas tertinggi.
+- Preview ● dan X pada menu pilihan mengikuti `dotColor` / `xColor` beserta fallback-nya.
 
 ### v1.2.0
 - Penanda biasa/interaktif sekarang mendukung `markColor`, `dotSize`, `xSize`, dan `markStrokeWidth` seperti permanent line.

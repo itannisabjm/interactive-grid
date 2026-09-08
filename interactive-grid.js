@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.2.0
+/* InteractiveGrid v1.2.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -33,6 +33,9 @@
     markStrokeWidth: 5,
     lineColor: '#18a94d',
     markColor: '#111',
+    // Warna khusus per tipe penanda biasa. Jika null/kosong, fallback ke markColor.
+    dotColor: null,
+    xColor: null,
     permanentLineWidth: 4,
     permanentMarkColor: '#111',
     permanentDotSize: 10,
@@ -128,6 +131,8 @@
     this.el.style.setProperty('--ig-cell-h', o.cellHeight + 'px');
     this.el.style.setProperty('--ig-line', o.lineColor);
     this.el.style.setProperty('--ig-mark', o.markColor);
+    this.el.style.setProperty('--ig-dot-color', (o.dotColor != null && String(o.dotColor).trim()) ? o.dotColor : o.markColor);
+    this.el.style.setProperty('--ig-x-color', (o.xColor != null && String(o.xColor).trim()) ? o.xColor : o.markColor);
     this.el.style.setProperty('--ig-dot-size', o.dotSize + 'px');
     this.el.style.setProperty('--ig-x-size', o.xSize + 'px');
     this.el.style.setProperty('--ig-mark-stroke-width', o.markStrokeWidth + 'px');
@@ -520,8 +525,10 @@
 
   InteractiveGrid.prototype._resolvePointMarkStyle = function (point, type) {
     var style = point && point.styles && point.styles[type] ? point.styles[type] : {};
+    var typeColor = type === 'dot' ? this.options.dotColor : this.options.xColor;
+    var fallbackColor = (typeColor != null && String(typeColor).trim()) ? typeColor : this.options.markColor;
     return {
-      color: style.color || this.options.markColor,
+      color: (style.color != null && String(style.color).trim()) ? style.color : fallbackColor,
       size: Number(style.size) > 0 ? Number(style.size) : (type === 'dot' ? this.options.dotSize : this.options.xSize),
       strokeWidth: Number(style.strokeWidth) > 0 ? Number(style.strokeWidth) : this.options.markStrokeWidth
     };
