@@ -1,8 +1,10 @@
-/* InteractiveGrid v1.4.0 - framework agnostic */
+/* InteractiveGrid v1.5.0 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
-  --ig-label-w: 48px;
+  --ig-y-label-w: 48px;
+  --ig-vertical-w: 0px;
+  --ig-grid-left: 48px;
   --ig-axis-h: 38px;
   --ig-time-h: 54px;
   --ig-grid-color: #111;
@@ -48,7 +50,7 @@
 
 .ig-grid {
   position: absolute;
-  left: var(--ig-label-w);
+  left: var(--ig-grid-left);
   top: 0;
   background-color: var(--ig-bg);
   background-image:
@@ -62,15 +64,41 @@
   border-bottom: 1px solid var(--ig-grid-color);
 }
 
+.ig-vertical-texts {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ig-vertical-text-lane {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.ig-vertical-text {
+  white-space: nowrap;
+  line-height: 1;
+  transform: rotate(-90deg);
+  transform-origin: center center;
+  text-align: center;
+}
+
 .ig-y-labels,
 .ig-x-labels,
 .ig-time-label,
 .ig-time-cells { position: absolute; }
 
 .ig-y-labels {
-  left: 0;
+  left: var(--ig-vertical-w);
   top: 0;
-  width: var(--ig-label-w);
+  width: var(--ig-y-label-w);
   display: grid;
   text-align: center;
   font-size: 13px;
@@ -78,7 +106,7 @@
 .ig-y-labels > div { display:flex; align-items:center; justify-content:center; }
 
 .ig-x-labels {
-  left: var(--ig-label-w);
+  left: var(--ig-grid-left);
   display: grid;
   text-align: center;
   font-size: 13px;
@@ -86,8 +114,8 @@
 .ig-x-labels > div { display:flex; align-items:flex-start; justify-content:center; padding-top:5px; }
 
 .ig-time-label {
-  left: 0;
-  width: var(--ig-label-w);
+  left: var(--ig-vertical-w);
+  width: var(--ig-y-label-w);
   display:flex;
   justify-content:center;
   align-items:flex-start;
@@ -98,7 +126,7 @@
 }
 
 .ig-time-cells {
-  left: var(--ig-label-w);
+  left: var(--ig-grid-left);
   border-top: 1px solid var(--ig-grid-color);
   border-bottom: 1px solid var(--ig-grid-color);
   border-right: 1px solid var(--ig-grid-color);
@@ -108,7 +136,7 @@
 
 .ig-overlay {
   position: absolute;
-  left: var(--ig-label-w);
+  left: var(--ig-grid-left);
   top: 0;
   pointer-events: none;
   overflow: visible;
@@ -117,7 +145,7 @@
 
 .ig-interaction {
   position: absolute;
-  left: var(--ig-label-w);
+  left: var(--ig-grid-left);
   top: 0;
   z-index: 8;
   cursor: crosshair;

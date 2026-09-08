@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.4.0
+/* InteractiveGrid v1.5.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -23,6 +23,16 @@
     // Jarak antar label angka pada sumbu Y.
     // Contoh yLabelStep: 2 -> label: 0, 2, 4, 6, ...
     yLabelStep: 1,
+
+    // Teks vertikal di sebelah kiri label angka sumbu Y.
+    // Dapat berupa string atau object: { id, text, color, fontSize, fontWeight, width, fontFamily }.
+    verticalTexts: [],
+    verticalTextWidth: 44,
+    verticalTextColor: '#111',
+    verticalTextFontSize: 18,
+    verticalTextFontWeight: '600',
+    verticalTextFontFamily: 'Arial, Helvetica, sans-serif',
+
     cellWidth: 54,
     cellHeight: 42,
     xAxisTitle: 'Waktu',
@@ -107,6 +117,20 @@
     });
   }
 
+  function cloneVerticalTexts(items) {
+    return (items || []).map(function (item) {
+      return {
+        id: item.id,
+        text: item.text,
+        color: item.color,
+        fontSize: item.fontSize,
+        fontWeight: item.fontWeight,
+        fontFamily: item.fontFamily,
+        width: item.width
+      };
+    });
+  }
+
   function isValidType(type) { return type === 'dot' || type === 'x'; }
 
   function InteractiveGrid(target, options) {
@@ -138,6 +162,11 @@
     this.points = [];
     this.permanentData = [];
     this._permanentSeq = 0;
+
+    this.verticalTexts = [];
+    this._verticalTextSeq = 0;
+    this._setVerticalTextsInternal(this.options.verticalTexts);
+
     this.history = [];
     this.pendingCell = null;
     this.destroyed = false;
@@ -175,6 +204,7 @@
     scroll.appendChild(chart);
 
     chart.innerHTML =
+      '<div class="ig-vertical-texts" aria-hidden="true"></div>' +
       '<div class="ig-y-labels"></div>' +
       '<div class="ig-grid"></div>' +
       '<div class="ig-x-labels"></div>' +
@@ -210,6 +240,7 @@
       clear: toolbar.querySelector('.ig-clear'),
       chart: chart,
       grid: chart.querySelector('.ig-grid'),
+      verticalTexts: chart.querySelector('.ig-vertical-texts'),
       yLabels: chart.querySelector('.ig-y-labels'),
       xLabels: chart.querySelector('.ig-x-labels'),
       timeLabel: chart.querySelector('.ig-time-label'),
@@ -226,24 +257,37 @@
     if (!o.showClear) this.dom.clear.classList.add('ig-hidden');
     this._layout();
     this._renderLabels();
+    this._renderVerticalTexts();
   };
 
   InteractiveGrid.prototype._layout = function () {
     var o = this.options;
-    var labelW = 48, axisH = 38, timeH = 54;
+    var yLabelW = 48, axisH = 38, timeH = 54;
+    var verticalTextW = this._getVerticalTextsWidth();
+    var gridLeft = verticalTextW + yLabelW;
+
     // Ruang ekstra di atas mencegah label Y tertinggi (mis. 10) terpotong.
     // Ruang di kanan memberi tempat untuk label X terakhir dan tanda pada batas kanan.
     var topPad = Math.ceil(o.cellHeight / 2) + 4;
     var rightPad = Math.ceil(o.cellWidth / 2) + 4;
     var gridW = (o.columns - 1) * o.cellWidth;
     var gridH = (o.rows - 1) * o.cellHeight;
-    var chartW = labelW + gridW + rightPad;
+    var chartW = gridLeft + gridW + rightPad;
     var chartH = topPad + gridH + axisH + timeH;
 
     this._metrics = {
-      labelW: labelW, axisH: axisH, timeH: timeH,
+      labelW: gridLeft,
+      yLabelW: yLabelW,
+      verticalTextW: verticalTextW,
+      gridLeft: gridLeft,
+      axisH: axisH, timeH: timeH,
       topPad: topPad, rightPad: rightPad, gridW: gridW, gridH: gridH
     };
+
+    // Posisi kiri komponen utama dibuat dinamis agar teks vertikal tidak menimpa label Y.
+    this.el.style.setProperty('--ig-y-label-w', yLabelW + 'px');
+    this.el.style.setProperty('--ig-vertical-w', verticalTextW + 'px');
+    this.el.style.setProperty('--ig-grid-left', gridLeft + 'px');
 
     this.dom.chart.style.width = chartW + 'px';
     this.dom.chart.style.height = chartH + 'px';
@@ -258,6 +302,10 @@
     this.dom.overlay.style.top = topPad + 'px';
     this.dom.overlay.style.width = gridW + 'px';
     this.dom.overlay.style.height = gridH + 'px';
+
+    this.dom.verticalTexts.style.top = topPad + 'px';
+    this.dom.verticalTexts.style.width = verticalTextW + 'px';
+    this.dom.verticalTexts.style.height = gridH + 'px';
 
     this.dom.yLabels.style.top = topPad + 'px';
     this.dom.yLabels.style.height = gridH + 'px';
@@ -275,6 +323,97 @@
     this.dom.timeCells.style.top = (topPad + gridH + axisH) + 'px';
     this.dom.timeCells.style.width = gridW + 'px';
     this.dom.timeCells.style.height = timeH + 'px';
+  };
+
+  InteractiveGrid.prototype._normalizeVerticalText = function (item, fallbackId) {
+    var o = this.options;
+
+    if (typeof item === 'string' || typeof item === 'number') {
+      item = { text: String(item) };
+    }
+    item = item || {};
+
+    var id = item.id != null && String(item.id).trim()
+      ? String(item.id)
+      : fallbackId;
+
+    var width = Number(item.width);
+    if (!(width > 0)) width = Number(o.verticalTextWidth);
+    if (!(width > 0)) width = 44;
+
+    var fontSize = Number(item.fontSize);
+    if (!(fontSize > 0)) fontSize = Number(o.verticalTextFontSize);
+    if (!(fontSize > 0)) fontSize = 18;
+
+    return {
+      id: id,
+      text: item.text == null ? '' : String(item.text),
+      color: item.color || o.verticalTextColor || '#111',
+      fontSize: fontSize,
+      fontWeight: item.fontWeight != null ? String(item.fontWeight) : String(o.verticalTextFontWeight || '600'),
+      fontFamily: item.fontFamily || o.verticalTextFontFamily || 'Arial, Helvetica, sans-serif',
+      width: width
+    };
+  };
+
+  InteractiveGrid.prototype._setVerticalTextsInternal = function (data) {
+    if (data == null) data = [];
+    if (!Array.isArray(data)) data = [data];
+
+    var normalized = [];
+    var ids = {};
+
+    for (var i = 0; i < data.length; i++) {
+      this._verticalTextSeq += 1;
+      var item = this._normalizeVerticalText(data[i], 'vertical-text-' + this._verticalTextSeq);
+
+      if (ids[item.id]) {
+        throw new Error('InteractiveGrid: id vertical text harus unik: ' + item.id);
+      }
+
+      ids[item.id] = true;
+      normalized.push(item);
+    }
+
+    this.verticalTexts = normalized;
+  };
+
+  InteractiveGrid.prototype._getVerticalTextsWidth = function () {
+    var total = 0;
+    for (var i = 0; i < this.verticalTexts.length; i++) {
+      total += Number(this.verticalTexts[i].width) || 0;
+    }
+    return total;
+  };
+
+  InteractiveGrid.prototype._renderVerticalTexts = function () {
+    if (!this.dom || !this.dom.verticalTexts) return;
+
+    var container = this.dom.verticalTexts;
+    container.innerHTML = '';
+
+    var left = 0;
+    for (var i = 0; i < this.verticalTexts.length; i++) {
+      var item = this.verticalTexts[i];
+
+      var lane = document.createElement('div');
+      lane.className = 'ig-vertical-text-lane';
+      lane.style.left = left + 'px';
+      lane.style.width = item.width + 'px';
+
+      var text = document.createElement('div');
+      text.className = 'ig-vertical-text';
+      text.textContent = item.text;
+      text.style.color = item.color;
+      text.style.fontSize = item.fontSize + 'px';
+      text.style.fontWeight = item.fontWeight;
+      text.style.fontFamily = item.fontFamily;
+      text.setAttribute('data-vertical-text-id', item.id);
+
+      lane.appendChild(text);
+      container.appendChild(lane);
+      left += item.width;
+    }
   };
 
   InteractiveGrid.prototype._renderLabels = function () {
@@ -825,12 +964,17 @@
   };
 
   InteractiveGrid.prototype.getAllData = function () {
-    return { points: this.getData(), permanent: this.getPermanentData() };
+    return {
+      points: this.getData(),
+      permanent: this.getPermanentData(),
+      verticalTexts: this.getVerticalTexts()
+    };
   };
 
   InteractiveGrid.prototype.setAllData = function (state, options) {
     state = state || {};
     this.setPermanentData(Array.isArray(state.permanent) ? state.permanent : []);
+    if (state.verticalTexts != null) this.setVerticalTexts(state.verticalTexts);
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
   };
@@ -927,6 +1071,87 @@
     return this.setData(typeof json === 'string' ? JSON.parse(json) : json, options);
   };
 
+  InteractiveGrid.prototype.getVerticalTexts = function () {
+    return cloneVerticalTexts(this.verticalTexts);
+  };
+
+  InteractiveGrid.prototype.setVerticalTexts = function (data) {
+    this._setVerticalTextsInternal(data);
+    this._layout();
+    this._renderLabels();
+    this._renderVerticalTexts();
+    this.render();
+    return this;
+  };
+
+  InteractiveGrid.prototype.addVerticalText = function (config) {
+    this._verticalTextSeq += 1;
+    var item = this._normalizeVerticalText(config, 'vertical-text-' + this._verticalTextSeq);
+
+    for (var i = 0; i < this.verticalTexts.length; i++) {
+      if (this.verticalTexts[i].id === item.id) {
+        throw new Error('InteractiveGrid.addVerticalText: id "' + item.id + '" sudah digunakan.');
+      }
+    }
+
+    this.verticalTexts.push(item);
+    this._layout();
+    this._renderLabels();
+    this._renderVerticalTexts();
+    this.render();
+    return item.id;
+  };
+
+  InteractiveGrid.prototype.updateVerticalText = function (id, patch) {
+    id = String(id);
+    patch = patch || {};
+
+    for (var i = 0; i < this.verticalTexts.length; i++) {
+      if (this.verticalTexts[i].id === id) {
+        var current = this.verticalTexts[i];
+        var merged = {
+          id: id,
+          text: patch.text != null ? patch.text : current.text,
+          color: patch.color != null ? patch.color : current.color,
+          fontSize: patch.fontSize != null ? patch.fontSize : current.fontSize,
+          fontWeight: patch.fontWeight != null ? patch.fontWeight : current.fontWeight,
+          fontFamily: patch.fontFamily != null ? patch.fontFamily : current.fontFamily,
+          width: patch.width != null ? patch.width : current.width
+        };
+
+        this.verticalTexts[i] = this._normalizeVerticalText(merged, id);
+        this._layout();
+        this._renderLabels();
+        this._renderVerticalTexts();
+        this.render();
+        return this;
+      }
+    }
+
+    return this;
+  };
+
+  InteractiveGrid.prototype.removeVerticalText = function (id) {
+    id = String(id);
+    this.verticalTexts = this.verticalTexts.filter(function (item) {
+      return item.id !== id;
+    });
+    this._layout();
+    this._renderLabels();
+    this._renderVerticalTexts();
+    this.render();
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearVerticalTexts = function () {
+    this.verticalTexts = [];
+    this._layout();
+    this._renderLabels();
+    this._renderVerticalTexts();
+    this.render();
+    return this;
+  };
+
   InteractiveGrid.prototype.setXLabelStep = function (step) {
     step = Number(step);
     if (!(step > 0)) throw new Error('InteractiveGrid.setXLabelStep: step harus lebih besar dari 0.');
@@ -962,6 +1187,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.4.0';
+  InteractiveGrid.VERSION = '1.5.0';
   return InteractiveGrid;
 });

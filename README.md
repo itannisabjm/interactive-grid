@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.4.0**
+**Versi: 1.5.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -14,6 +14,7 @@ Fitur utama:
 - API untuk tambah/hapus/get/set/clear/undo/JSON.
 - Penanda biasa/interaktif dapat diatur **warna umum (`markColor`), warna khusus dot (`dotColor`), warna khusus X (`xColor`), ukuran dot, ukuran X, dan ketebalan X**, secara global maupun per tanda.
 - Label angka sumbu X dan Y dapat diatur frekuensinya dengan `xLabelStep` dan `yLabelStep` tanpa mengubah jumlah kolom/baris atau koordinat data.
+- Mendukung satu atau lebih **teks vertikal di sebelah kiri sumbu Y**, dengan pengaturan teks, warna, ukuran font, font weight, font family, dan lebar area.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
@@ -49,7 +50,10 @@ Pastikan ketiga file berada dalam folder `interactive-grid`.
       columns: 17,
       rows: 11,
       xAxisTitle: 'Waktu',
-      xAxisSubtitle: '(Jam)'
+      xAxisSubtitle: '(Jam)',
+      verticalTexts: [
+        { text: 'Sentimeter (cm)', fontSize: 22 }
+      ]
     });
 
     // contoh data awal
@@ -727,6 +731,20 @@ localStorage.setItem('grafik', json);
 grid.fromJSON(localStorage.getItem('grafik'));
 ```
 
+### API vertical text
+
+```javascript
+grid.addVerticalText(config);
+grid.updateVerticalText(id, patch);
+grid.removeVerticalText(id);
+grid.setVerticalTexts(array);
+grid.getVerticalTexts();
+grid.clearVerticalTexts();
+```
+
+`addVerticalText()` mengembalikan `id` teks yang dibuat. Setiap perubahan layout akan langsung dirender ulang.
+
+
 ### `setXLabelStep(step)` / `getXLabelStep()`
 
 Mengubah frekuensi angka sumbu X tanpa membuat ulang instance:
@@ -786,6 +804,14 @@ const grid = new InteractiveGrid('#grafik', {
   xLabelStep: 1, // tampilkan angka X setiap 1 kolom; alias: step
   yStart: 0,
   yLabelStep: 1, // tampilkan angka Y setiap 1 baris
+
+  verticalTexts: [],
+  verticalTextWidth: 44,
+  verticalTextColor: '#111',
+  verticalTextFontSize: 18,
+  verticalTextFontWeight: '600',
+  verticalTextFontFamily: 'Arial, Helvetica, sans-serif',
+
   cellWidth: 54,
   cellHeight: 42,
 
@@ -1084,6 +1110,156 @@ Pada contoh tersebut:
 - Seluruh koordinat di antara label tetap tersedia untuk penanda dan garis.
 
 
+### Teks vertikal di sebelah kiri sumbu Y
+
+Gunakan `verticalTexts` untuk menambahkan teks vertikal di sebelah kiri angka sumbu Y, seperti **Sentimeter (cm)** pada grafik pengukuran.
+
+Contoh satu teks:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+
+  verticalTexts: [
+    {
+      id: 'satuan',
+      text: 'Sentimeter (cm)',
+      color: '#111111',
+      fontSize: 24,
+      fontWeight: '700',
+      width: 54
+    }
+  ]
+});
+```
+
+Teks otomatis diputar vertikal dan ditempatkan di sebelah kiri label angka Y. Area grafik akan bergeser ke kanan secara otomatis agar teks tidak menimpa angka Y.
+
+#### Lebih dari satu teks vertikal
+
+`verticalTexts` dapat berisi lebih dari satu item:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+
+  verticalTexts: [
+    {
+      id: 'judul',
+      text: 'Pertumbuhan',
+      color: '#444',
+      fontSize: 18,
+      fontWeight: '600',
+      width: 42
+    },
+    {
+      id: 'satuan',
+      text: 'Sentimeter (cm)',
+      color: '#111',
+      fontSize: 24,
+      fontWeight: '700',
+      width: 54
+    }
+  ]
+});
+```
+
+Urutan array adalah dari **kiri ke kanan**. Pada contoh di atas, `Pertumbuhan` berada paling kiri dan `Sentimeter (cm)` berada lebih dekat ke angka sumbu Y.
+
+Setiap item mendukung:
+
+| Properti | Fungsi |
+|---|---|
+| `id` | ID unik; opsional, otomatis dibuat bila tidak diisi |
+| `text` | isi teks vertikal |
+| `color` | warna teks |
+| `fontSize` | ukuran font dalam pixel |
+| `fontWeight` | misalnya `400`, `600`, `700`, `bold` |
+| `fontFamily` | jenis font |
+| `width` | lebar jalur/ruang untuk teks tersebut dalam pixel |
+
+Nilai default global:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  verticalTextWidth: 44,
+  verticalTextColor: '#111',
+  verticalTextFontSize: 18,
+  verticalTextFontWeight: '600',
+  verticalTextFontFamily: 'Arial, Helvetica, sans-serif',
+
+  verticalTexts: [
+    'Sentimeter (cm)'
+  ]
+});
+```
+
+Item juga boleh berupa string sederhana:
+
+```javascript
+verticalTexts: [
+  'Pertumbuhan',
+  'Sentimeter (cm)'
+]
+```
+
+#### API teks vertikal
+
+Tambah satu teks setelah grid dibuat:
+
+```javascript
+const id = grid.addVerticalText({
+  id: 'satuan',
+  text: 'Sentimeter (cm)',
+  color: '#111',
+  fontSize: 24,
+  fontWeight: '700',
+  width: 54
+});
+```
+
+Mengubah teks:
+
+```javascript
+grid.updateVerticalText('satuan', {
+  text: 'Centimeter (cm)',
+  color: '#2563eb',
+  fontSize: 26
+});
+```
+
+Menghapus satu:
+
+```javascript
+grid.removeVerticalText('satuan');
+```
+
+Mengganti seluruh daftar:
+
+```javascript
+grid.setVerticalTexts([
+  { id: 'label-1', text: 'Pertumbuhan' },
+  { id: 'label-2', text: 'Sentimeter (cm)', fontSize: 24 }
+]);
+```
+
+Mengambil data:
+
+```javascript
+const labels = grid.getVerticalTexts();
+```
+
+Menghapus semuanya:
+
+```javascript
+grid.clearVerticalTexts();
+```
+
+Perubahan jumlah teks atau `width` akan otomatis menghitung ulang ruang di sebelah kiri grafik, sehingga label Y, grid, overlay, titik, garis, dan area klik tetap sejajar.
+
+
 ### Arti `columns` dan `rows`
 
 `columns: 17` berarti tersedia 17 titik X: `0..16`.
@@ -1173,7 +1349,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.4.0
+console.log(InteractiveGrid.VERSION); // 1.5.0
 ```
 
 ## Lisensi
@@ -1205,6 +1381,16 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v1.5.0
+- Menambahkan `verticalTexts` untuk menampilkan satu atau lebih teks vertikal di sebelah kiri label sumbu Y.
+- Teks vertikal mendukung `text`, `color`, `fontSize`, `fontWeight`, `fontFamily`, dan `width`.
+- Menambahkan default global `verticalTextWidth`, `verticalTextColor`, `verticalTextFontSize`, `verticalTextFontWeight`, dan `verticalTextFontFamily`.
+- Layout kiri grafik dihitung ulang secara otomatis saat jumlah atau lebar vertical text berubah.
+- Menambahkan API `addVerticalText()`, `updateVerticalText()`, `removeVerticalText()`, `setVerticalTexts()`, `getVerticalTexts()`, dan `clearVerticalTexts()`.
+- `getAllData()` / `toFullJSON()` sekarang juga menyertakan `verticalTexts`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
+- Semua fitur lama (`xLabelStep`, `yLabelStep`, permanent line, marker, undo, dan data interaktif) tetap kompatibel.
+
 
 ### v1.4.0
 - Menambahkan `yLabelStep` untuk mengatur setiap berapa baris angka sumbu Y ditampilkan.
