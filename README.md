@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.1.1**
+**Versi: 1.2.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -12,6 +12,7 @@ Fitur utama:
 - Jika sebuah koordinat dihapus seluruhnya, garis otomatis menyambungkan koordinat sebelum dan sesudahnya.
 - Bisa menghapus hanya ● atau hanya X pada koordinat yang memiliki dua tanda.
 - API untuk tambah/hapus/get/set/clear/undo/JSON.
+- Penanda biasa/interaktif dapat diatur **warna, ukuran dot, ukuran X, dan ketebalan X**, secara global maupun per tanda.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
@@ -454,7 +455,7 @@ Contoh format data lengkap:
 
 ## Format data
 
-Format utama:
+Format utama tetap sederhana dan kompatibel dengan versi sebelumnya:
 
 ```json
 [
@@ -466,6 +467,49 @@ Format utama:
 
 Urutan array menentukan urutan garis.
 
+### Format data dengan style penanda biasa
+
+Jika sebuah tanda membutuhkan style khusus, plugin menambahkan `styles.dot` dan/atau `styles.x` pada koordinat tersebut:
+
+```json
+[
+  {
+    "x": 2,
+    "y": 4,
+    "types": ["dot"],
+    "styles": {
+      "dot": {
+        "color": "#2563eb",
+        "size": 14
+      }
+    }
+  },
+  {
+    "x": 5,
+    "y": 7,
+    "types": ["x"],
+    "styles": {
+      "x": {
+        "color": "#dc2626",
+        "size": 18,
+        "strokeWidth": 7
+      }
+    }
+  },
+  {
+    "x": 8,
+    "y": 5,
+    "types": ["dot", "x"],
+    "styles": {
+      "dot": { "color": "#111111", "size": 10 },
+      "x": { "color": "#7c3aed", "size": 16, "strokeWidth": 5 }
+    }
+  }
+]
+```
+
+Karena satu koordinat dapat mempunyai `dot` dan `x` sekaligus, masing-masing tanda dapat mempunyai warna dan ukuran yang berbeda.
+
 Sebagai kompatibilitas, `setData()` juga menerima format satu tanda per item:
 
 ```json
@@ -474,6 +518,30 @@ Sebagai kompatibilitas, `setData()` juga menerima format satu tanda per item:
   { "x": 2, "y": 7, "type": "x" }
 ]
 ```
+
+`setData()` juga menerima style ringkas di level titik. Contoh:
+
+```javascript
+grid.setData([
+  {
+    x: 2,
+    y: 3,
+    type: 'dot',
+    markColor: '#2563eb',
+    dotSize: 14
+  },
+  {
+    x: 5,
+    y: 7,
+    type: 'x',
+    markColor: '#dc2626',
+    xSize: 18,
+    markStrokeWidth: 7
+  }
+]);
+```
+
+Saat data diambil kembali dengan `getData()`, style khusus dinormalisasi ke dalam properti `styles`.
 
 ## API
 
@@ -489,9 +557,9 @@ Target dapat berupa selector CSS atau elemen DOM:
 new InteractiveGrid(document.getElementById('grafik'));
 ```
 
-### `addPoint(x, y, type)`
+### `addPoint(x, y, type, style?)`
 
-Tambah tanda.
+Tambah tanda. Parameter `style` bersifat opsional.
 
 ```javascript
 grid.addPoint(3, 7, 'dot');
@@ -499,6 +567,73 @@ grid.addPoint(3, 7, 'x'); // koordinat yang sama sekarang memiliki ● + X
 ```
 
 `type`: `dot` atau `x`.
+
+Memberi style khusus pada dot:
+
+```javascript
+grid.addPoint(2, 4, 'dot', {
+  color: '#2563eb',
+  size: 14
+});
+```
+
+Memberi style khusus pada X:
+
+```javascript
+grid.addPoint(5, 7, 'x', {
+  color: '#dc2626',
+  size: 18,
+  strokeWidth: 7
+});
+```
+
+Nama properti yang sama dengan konfigurasi global juga diterima:
+
+```javascript
+grid.addPoint(8, 6, 'x', {
+  markColor: '#7c3aed',
+  xSize: 16,
+  markStrokeWidth: 6
+});
+```
+
+Jika pada satu koordinat terdapat `dot` dan `x`, style keduanya independen:
+
+```javascript
+grid.addPoint(4, 6, 'dot', { color: '#111', size: 10 });
+grid.addPoint(4, 6, 'x',   { color: '#e11d48', size: 17, strokeWidth: 5 });
+```
+
+### `updatePointMark(x, y, type, style)` / `setPointStyle(...)`
+
+Mengubah style tanda biasa yang sudah ada tanpa mengubah koordinat atau urutan garis:
+
+```javascript
+grid.updatePointMark(5, 7, 'x', {
+  color: '#f59e0b',
+  size: 20,
+  strokeWidth: 8
+});
+```
+
+`setPointStyle()` adalah alias dari `updatePointMark()`:
+
+```javascript
+grid.setPointStyle(2, 4, 'dot', {
+  color: '#16a34a',
+  size: 13
+});
+```
+
+Perubahan style masuk ke history sehingga dapat dikembalikan dengan `undo()`.
+
+### `resetPointMarkStyle(x, y, type)`
+
+Menghapus style khusus dari sebuah tanda dan mengembalikannya ke default global plugin:
+
+```javascript
+grid.resetPointMarkStyle(5, 7, 'x');
+```
 
 ### `removePoint(x, y, type?)`
 
@@ -548,8 +683,18 @@ const point = grid.getPoint(3, 7);
 Hasil contoh:
 
 ```javascript
-{ x: 3, y: 7, types: ['dot', 'x'] }
+{
+  x: 3,
+  y: 7,
+  types: ['dot', 'x'],
+  styles: {
+    dot: { color: '#2563eb', size: 12 },
+    x: { color: '#dc2626', size: 17, strokeWidth: 6 }
+  }
+}
 ```
+
+Jika tidak ada style khusus, properti `styles` tidak ditambahkan.
 
 ### `hasPoint(x, y, type?)`
 
@@ -617,11 +762,13 @@ const grid = new InteractiveGrid('#grafik', {
   showClear: true,
 
   lineWidth: 4,
-  markSize: 10,
-  xMarkSize: 13,
-  markStrokeWidth: 5,
   lineColor: '#18a94d',
+
+  // default penanda biasa/interaktif
   markColor: '#111',
+  dotSize: 10,
+  xSize: 13,
+  markStrokeWidth: 5,
 
   onChange(data, reason) {
     console.log(reason, data);
@@ -632,6 +779,30 @@ const grid = new InteractiveGrid('#grafik', {
   }
 });
 ```
+
+### Style default penanda biasa
+
+Empat opsi utama untuk penanda yang dibuat pengguna:
+
+| Opsi | Fungsi |
+|---|---|
+| `markColor` | warna default `dot` dan `x` |
+| `dotSize` | radius tanda bulat dalam pixel |
+| `xSize` | setengah panjang diagonal tanda X dalam pixel |
+| `markStrokeWidth` | ketebalan garis tanda X dalam pixel |
+
+Contoh:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  markColor: '#0f172a',
+  dotSize: 12,
+  xSize: 17,
+  markStrokeWidth: 6
+});
+```
+
+`markSize` dan `xMarkSize` dari versi lama masih didukung sebagai alias untuk `dotSize` dan `xSize`, tetapi untuk kode baru disarankan menggunakan `dotSize` dan `xSize`.
 
 ### Arti `columns` dan `rows`
 
@@ -665,6 +836,7 @@ Reason yang tersedia saat ini:
 
 - `add`
 - `remove`
+- `style`
 - `setData`
 - `clear`
 - `undo`
@@ -694,9 +866,11 @@ chart_points
 - y
 - has_dot
 - has_x
+- dot_color / dot_size (opsional)
+- x_color / x_size / x_stroke_width (opsional)
 ```
 
-`sequence` penting karena urutan titik menentukan jalur garis.
+`sequence` penting karena urutan titik menentukan jalur garis. Jika tidak perlu melakukan query style per tanda, lebih sederhana menyimpan seluruh `getData()` sebagai JSON.
 
 ## Catatan integrasi
 
@@ -719,7 +893,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.1.1
+console.log(InteractiveGrid.VERSION); // 1.2.0
 ```
 
 ## Lisensi
@@ -728,6 +902,16 @@ Kode ini dapat digunakan dan dimodifikasi pada proyek internal Anda. Jika nantin
 
 
 ## Changelog
+
+### v1.2.0
+- Penanda biasa/interaktif sekarang mendukung `markColor`, `dotSize`, `xSize`, dan `markStrokeWidth` seperti permanent line.
+- Style dapat ditentukan secara global pada constructor atau secara khusus untuk masing-masing `dot`/`x` pada sebuah koordinat.
+- `addPoint(x, y, type, style)` menerima style marker opsional.
+- Menambahkan `updatePointMark()` dan alias `setPointStyle()` untuk mengubah style tanda yang sudah ada.
+- Menambahkan `resetPointMarkStyle()` untuk kembali ke style default global.
+- `getData()`, `setData()`, `toJSON()`, `fromJSON()`, history, dan `undo()` sekarang mempertahankan style tanda biasa.
+- Preview ● dan X di menu mengikuti ukuran, warna, dan ketebalan default penanda biasa.
+- `markSize` dan `xMarkSize` tetap didukung sebagai alias kompatibilitas dari `dotSize` dan `xSize`.
 
 ### v1.1.1
 - Permanent line mendukung warna marker melalui `markColor`.
