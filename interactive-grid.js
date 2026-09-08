@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.3.0
+/* InteractiveGrid v1.4.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -20,6 +20,9 @@
     // Alias singkat untuk xLabelStep.
     step: null,
     yStart: 0,
+    // Jarak antar label angka pada sumbu Y.
+    // Contoh yLabelStep: 2 -> label: 0, 2, 4, 6, ...
+    yLabelStep: 1,
     cellWidth: 54,
     cellHeight: 42,
     xAxisTitle: 'Waktu',
@@ -121,6 +124,11 @@
     if (!(this.options.xLabelStep > 0)) this.options.xLabelStep = 1;
     this.options.xLabelStep = Math.max(1, Math.floor(this.options.xLabelStep));
     this.options.step = this.options.xLabelStep;
+
+    // yLabelStep mengatur frekuensi label angka pada sumbu Y.
+    this.options.yLabelStep = Number(this.options.yLabelStep);
+    if (!(this.options.yLabelStep > 0)) this.options.yLabelStep = 1;
+    this.options.yLabelStep = Math.max(1, Math.floor(this.options.yLabelStep));
 
     // Alias opsi lama -> nama baru, tanpa merusak implementasi lama.
     if (options && options.dotSize == null && options.markSize != null) this.options.dotSize = Number(options.markSize);
@@ -272,16 +280,28 @@
   InteractiveGrid.prototype._renderLabels = function () {
     var o = this.options;
     var xHTML = '', yHTML = '';
-    var step = Number(o.xLabelStep);
-    if (!(step > 0)) step = 1;
-    step = Math.max(1, Math.floor(step));
+
+    var xStep = Number(o.xLabelStep);
+    if (!(xStep > 0)) xStep = 1;
+    xStep = Math.max(1, Math.floor(xStep));
+
+    var yStep = Number(o.yLabelStep);
+    if (!(yStep > 0)) yStep = 1;
+    yStep = Math.max(1, Math.floor(yStep));
 
     // Hanya frekuensi label yang berubah; grid dan koordinat tetap sama.
     for (var x = 0; x < o.columns; x++) {
-      var showLabel = (x % step) === 0;
-      xHTML += '<div>' + (showLabel ? this._escape(o.xStart + x) : '') + '</div>';
+      var showXLabel = (x % xStep) === 0;
+      xHTML += '<div>' + (showXLabel ? this._escape(o.xStart + x) : '') + '</div>';
     }
-    for (var y = o.rows - 1; y >= 0; y--) yHTML += '<div>' + (o.yStart + y) + '</div>';
+
+    // Loop Y dirender dari nilai tertinggi ke terendah agar sesuai posisi visual sumbu Y.
+    // Interval tetap dihitung dari yStart, sama seperti xLabelStep dihitung dari xStart.
+    for (var y = o.rows - 1; y >= 0; y--) {
+      var showYLabel = (y % yStep) === 0;
+      yHTML += '<div>' + (showYLabel ? this._escape(o.yStart + y) : '') + '</div>';
+    }
+
     this.dom.xLabels.innerHTML = xHTML;
     this.dom.yLabels.innerHTML = yHTML;
     this.dom.timeLabel.innerHTML = this._escape(o.xAxisTitle) + '<br>' + this._escape(o.xAxisSubtitle);
@@ -921,6 +941,19 @@
     return this.options.xLabelStep;
   };
 
+  InteractiveGrid.prototype.setYLabelStep = function (step) {
+    step = Number(step);
+    if (!(step > 0)) throw new Error('InteractiveGrid.setYLabelStep: step harus lebih besar dari 0.');
+    step = Math.max(1, Math.floor(step));
+    this.options.yLabelStep = step;
+    this._renderLabels();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getYLabelStep = function () {
+    return this.options.yLabelStep;
+  };
+
   InteractiveGrid.prototype.destroy = function () {
     this._bound.forEach(function (b) { b[0].removeEventListener(b[1], b[2], b[3]); });
     this._bound = [];
@@ -929,6 +962,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.3.0';
+  InteractiveGrid.VERSION = '1.4.0';
   return InteractiveGrid;
 });

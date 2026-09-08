@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.3.0**
+**Versi: 1.4.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -13,7 +13,7 @@ Fitur utama:
 - Bisa menghapus hanya ● atau hanya X pada koordinat yang memiliki dua tanda.
 - API untuk tambah/hapus/get/set/clear/undo/JSON.
 - Penanda biasa/interaktif dapat diatur **warna umum (`markColor`), warna khusus dot (`dotColor`), warna khusus X (`xColor`), ukuran dot, ukuran X, dan ketebalan X**, secara global maupun per tanda.
-- Label angka sumbu X dapat diatur frekuensinya dengan `xLabelStep` (atau alias `step`) tanpa mengubah jumlah kolom atau koordinat data.
+- Label angka sumbu X dan Y dapat diatur frekuensinya dengan `xLabelStep` dan `yLabelStep` tanpa mengubah jumlah kolom/baris atau koordinat data.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
@@ -744,6 +744,22 @@ const step = grid.getXLabelStep();
 Nilai harus lebih besar dari `0`. Nilai desimal dibulatkan ke bawah, dengan minimum `1`.
 
 
+### `setYLabelStep(step)` / `getYLabelStep()`
+
+Mengubah frekuensi angka sumbu Y tanpa membuat ulang instance:
+
+```javascript
+grid.setYLabelStep(2);
+```
+
+Membaca nilai saat ini:
+
+```javascript
+const step = grid.getYLabelStep();
+```
+
+Nilai harus lebih besar dari `0`. Nilai desimal dibulatkan ke bawah, dengan minimum `1`.
+
 ### `render()`
 
 Memaksa gambar ulang:
@@ -767,8 +783,9 @@ const grid = new InteractiveGrid('#grafik', {
   columns: 17,
   rows: 11,
   xStart: 0,
-  xLabelStep: 1, // tampilkan angka setiap 1 kolom; alias: step
+  xLabelStep: 1, // tampilkan angka X setiap 1 kolom; alias: step
   yStart: 0,
+  yLabelStep: 1, // tampilkan angka Y setiap 1 baris
   cellWidth: 54,
   cellHeight: 42,
 
@@ -946,6 +963,127 @@ console.log(grid.getXLabelStep()); // 2
 ```
 
 
+### Mengatur interval angka sumbu Y: `yLabelStep`
+
+`yLabelStep` mempunyai fungsi yang sama seperti `xLabelStep`, tetapi berlaku pada **label angka sumbu Y**.
+
+Default:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+  yStart: 0,
+  yLabelStep: 1
+});
+```
+
+Dengan `rows: 11`, koordinat Y tetap `0..10`. Karena `yLabelStep: 1`, semua angka tampil:
+
+```text
+10
+ 9
+ 8
+ 7
+ 6
+ 5
+ 4
+ 3
+ 2
+ 1
+ 0
+```
+
+Jika diubah menjadi:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+  yStart: 0,
+  yLabelStep: 2
+});
+```
+
+maka angka yang ditampilkan menjadi:
+
+```text
+10
+ 8
+ 6
+ 4
+ 2
+ 0
+```
+
+Baris di antara angka tersebut **tetap ada**. Jadi koordinat seperti `(5,9)`, `(5,7)`, `(5,5)`, atau `(5,1)` tetap valid dan tetap dapat dipilih walaupun label `9`, `7`, `5`, dan `1` tidak ditampilkan.
+
+Contoh lain:
+
+```javascript
+yLabelStep: 3
+```
+
+dengan `rows: 11` dan `yStart: 0` akan menampilkan:
+
+```text
+9
+6
+3
+0
+```
+
+Jika `yStart` bukan `0`, interval dihitung berdasarkan urutan baris dari `yStart`. Contoh:
+
+```javascript
+yStart: 1,
+rows: 10,
+yLabelStep: 2
+```
+
+koordinat Y tersedia dari `1..10`, sedangkan label yang ditampilkan adalah:
+
+```text
+9
+7
+5
+3
+1
+```
+
+> `yLabelStep` hanya mengubah tampilan label angka sumbu Y. Jumlah baris, posisi grid, koordinat klik, data, garis interaktif, dan permanent line tidak berubah.
+
+Nilainya juga dapat diubah setelah instance dibuat:
+
+```javascript
+grid.setYLabelStep(2);
+console.log(grid.getYLabelStep()); // 2
+```
+
+### Menggunakan `xLabelStep` dan `yLabelStep` bersamaan
+
+Keduanya dapat digunakan sekaligus:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+
+  xStart: 0,
+  yStart: 0,
+
+  xLabelStep: 2,
+  yLabelStep: 2
+});
+```
+
+Pada contoh tersebut:
+
+- Sumbu X menampilkan `0, 2, 4, 6, 8, 10, 12, 14, 16`.
+- Sumbu Y menampilkan `0, 2, 4, 6, 8, 10`.
+- Seluruh koordinat di antara label tetap tersedia untuk penanda dan garis.
+
+
 ### Arti `columns` dan `rows`
 
 `columns: 17` berarti tersedia 17 titik X: `0..16`.
@@ -1035,7 +1173,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.3.0
+console.log(InteractiveGrid.VERSION); // 1.4.0
 ```
 
 ## Lisensi
@@ -1067,6 +1205,14 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v1.4.0
+- Menambahkan `yLabelStep` untuk mengatur setiap berapa baris angka sumbu Y ditampilkan.
+- Default `yLabelStep: 1`, sehingga perilaku versi sebelumnya tetap sama.
+- `yLabelStep` hanya memengaruhi label angka sumbu Y; jumlah baris, koordinat, marker, garis interaktif, dan permanent line tetap sama.
+- Menambahkan API `setYLabelStep(step)` dan `getYLabelStep()`.
+- `xLabelStep` dan `yLabelStep` dapat digunakan secara bersamaan.
+
 
 ### v1.3.0
 - Menambahkan `xLabelStep` untuk mengatur setiap berapa kolom angka sumbu X ditampilkan.
