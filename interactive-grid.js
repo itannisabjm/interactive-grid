@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.2.1
+/* InteractiveGrid v1.2.2
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -36,6 +36,8 @@
     // Warna khusus per tipe penanda biasa. Jika null/kosong, fallback ke markColor.
     dotColor: null,
     xColor: null,
+    // Jika true dan dot + X berada pada koordinat yang sama, dot dirender terakhir (di atas X).
+    showDotOnTop: false,
     permanentLineWidth: 4,
     permanentMarkColor: '#111',
     permanentDotSize: 10,
@@ -552,13 +554,30 @@
       var pt = this.points[j];
       var ii = this._internalXY(pt.x, pt.y);
       var p = this._coords(ii.x, ii.y);
-      if (pt.types.indexOf('dot') >= 0) {
-        var dotStyle = this._resolvePointMarkStyle(pt, 'dot');
-        this._drawMark(p, 'dot', dotStyle.color, { markSize: dotStyle.size });
-      }
-      if (pt.types.indexOf('x') >= 0) {
-        var xStyle = this._resolvePointMarkStyle(pt, 'x');
-        this._drawMark(p, 'x', xStyle.color, { xMarkSize: xStyle.size, markStrokeWidth: xStyle.strokeWidth });
+      var hasDot = pt.types.indexOf('dot') >= 0;
+      var hasX = pt.types.indexOf('x') >= 0;
+
+      // SVG mengikuti urutan render: elemen yang digambar terakhir akan berada di atas.
+      // Default mempertahankan perilaku lama (X di atas dot). Jika showDotOnTop=true,
+      // X digambar lebih dulu lalu dot sehingga titik bulat tetap terlihat jelas.
+      if (this.options.showDotOnTop) {
+        if (hasX) {
+          var xStyleTopMode = this._resolvePointMarkStyle(pt, 'x');
+          this._drawMark(p, 'x', xStyleTopMode.color, { xMarkSize: xStyleTopMode.size, markStrokeWidth: xStyleTopMode.strokeWidth });
+        }
+        if (hasDot) {
+          var dotStyleTopMode = this._resolvePointMarkStyle(pt, 'dot');
+          this._drawMark(p, 'dot', dotStyleTopMode.color, { markSize: dotStyleTopMode.size });
+        }
+      } else {
+        if (hasDot) {
+          var dotStyle = this._resolvePointMarkStyle(pt, 'dot');
+          this._drawMark(p, 'dot', dotStyle.color, { markSize: dotStyle.size });
+        }
+        if (hasX) {
+          var xStyle = this._resolvePointMarkStyle(pt, 'x');
+          this._drawMark(p, 'x', xStyle.color, { xMarkSize: xStyle.size, markStrokeWidth: xStyle.strokeWidth });
+        }
       }
     }
 

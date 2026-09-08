@@ -936,9 +936,32 @@ console.log(InteractiveGrid.VERSION); // 1.2.0
 Kode ini dapat digunakan dan dimodifikasi pada proyek internal Anda. Jika nantinya plugin akan didistribusikan sebagai library publik, sebaiknya tambahkan file lisensi formal (misalnya MIT) dan versioning/changelog.
 
 
+
+## `showDotOnTop`
+
+Gunakan `showDotOnTop: true` jika satu koordinat dapat berisi tanda `dot` dan `x` sekaligus dan Anda ingin titik bulat berada di lapisan paling atas.
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  markColor: '#111111',
+  xColor: '#dc2626',
+  dotColor: '#2563eb',
+  dotSize: 6,
+  xSize: 7,
+  markStrokeWidth: 6,
+  showDotOnTop: true
+});
+```
+
+Perilaku:
+
+- `showDotOnTop: false` (default): urutan kompatibel versi sebelumnya, yaitu dot digambar lebih dahulu lalu X, sehingga X berada di atas dot.
+- `showDotOnTop: true`: X digambar lebih dahulu lalu dot, sehingga dot berada di atas X dan tetap terlihat lebih jelas.
+- Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
+
 ## Changelog
 
-### v1.2.1
+### v1.2.2
 - Menambahkan `xColor` sebagai warna global khusus penanda X.
 - Menambahkan `dotColor` sebagai warna global khusus penanda titik bulat.
 - Jika `xColor` / `dotColor` tidak diisi, `null`, atau string kosong, warna otomatis fallback ke `markColor`.
