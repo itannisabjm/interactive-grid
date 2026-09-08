@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.2.2
+/* InteractiveGrid v1.3.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -14,6 +14,11 @@
     columns: 17,          // x = 0..16
     rows: 11,             // y = 0..10
     xStart: 0,
+    // Jarak antar label angka pada sumbu X.
+    // Contoh xLabelStep: 2 -> label: 0, 2, 4, 6, ...
+    xLabelStep: 1,
+    // Alias singkat untuk xLabelStep.
+    step: null,
     yStart: 0,
     cellWidth: 54,
     cellHeight: 42,
@@ -107,6 +112,16 @@
     if (!this.el) throw new Error('InteractiveGrid: target element tidak ditemukan.');
 
     this.options = merge(DEFAULTS, options || {});
+
+    // xLabelStep adalah nama utama. `step` adalah alias singkat.
+    if (options && options.xLabelStep == null && options.step != null) {
+      this.options.xLabelStep = Number(options.step);
+    }
+    this.options.xLabelStep = Number(this.options.xLabelStep);
+    if (!(this.options.xLabelStep > 0)) this.options.xLabelStep = 1;
+    this.options.xLabelStep = Math.max(1, Math.floor(this.options.xLabelStep));
+    this.options.step = this.options.xLabelStep;
+
     // Alias opsi lama -> nama baru, tanpa merusak implementasi lama.
     if (options && options.dotSize == null && options.markSize != null) this.options.dotSize = Number(options.markSize);
     if (options && options.xSize == null && options.xMarkSize != null) this.options.xSize = Number(options.xMarkSize);
@@ -257,7 +272,15 @@
   InteractiveGrid.prototype._renderLabels = function () {
     var o = this.options;
     var xHTML = '', yHTML = '';
-    for (var x = 0; x < o.columns; x++) xHTML += '<div>' + (o.xStart + x) + '</div>';
+    var step = Number(o.xLabelStep);
+    if (!(step > 0)) step = 1;
+    step = Math.max(1, Math.floor(step));
+
+    // Hanya frekuensi label yang berubah; grid dan koordinat tetap sama.
+    for (var x = 0; x < o.columns; x++) {
+      var showLabel = (x % step) === 0;
+      xHTML += '<div>' + (showLabel ? this._escape(o.xStart + x) : '') + '</div>';
+    }
     for (var y = o.rows - 1; y >= 0; y--) yHTML += '<div>' + (o.yStart + y) + '</div>';
     this.dom.xLabels.innerHTML = xHTML;
     this.dom.yLabels.innerHTML = yHTML;
@@ -884,6 +907,20 @@
     return this.setData(typeof json === 'string' ? JSON.parse(json) : json, options);
   };
 
+  InteractiveGrid.prototype.setXLabelStep = function (step) {
+    step = Number(step);
+    if (!(step > 0)) throw new Error('InteractiveGrid.setXLabelStep: step harus lebih besar dari 0.');
+    step = Math.max(1, Math.floor(step));
+    this.options.xLabelStep = step;
+    this.options.step = step;
+    this._renderLabels();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getXLabelStep = function () {
+    return this.options.xLabelStep;
+  };
+
   InteractiveGrid.prototype.destroy = function () {
     this._bound.forEach(function (b) { b[0].removeEventListener(b[1], b[2], b[3]); });
     this._bound = [];
@@ -892,6 +929,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.2.0';
+  InteractiveGrid.VERSION = '1.3.0';
   return InteractiveGrid;
 });

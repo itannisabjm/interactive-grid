@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.2.1**
+**Versi: 1.3.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -13,6 +13,7 @@ Fitur utama:
 - Bisa menghapus hanya ● atau hanya X pada koordinat yang memiliki dua tanda.
 - API untuk tambah/hapus/get/set/clear/undo/JSON.
 - Penanda biasa/interaktif dapat diatur **warna umum (`markColor`), warna khusus dot (`dotColor`), warna khusus X (`xColor`), ukuran dot, ukuran X, dan ketebalan X**, secara global maupun per tanda.
+- Label angka sumbu X dapat diatur frekuensinya dengan `xLabelStep` (atau alias `step`) tanpa mengubah jumlah kolom atau koordinat data.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
@@ -726,6 +727,23 @@ localStorage.setItem('grafik', json);
 grid.fromJSON(localStorage.getItem('grafik'));
 ```
 
+### `setXLabelStep(step)` / `getXLabelStep()`
+
+Mengubah frekuensi angka sumbu X tanpa membuat ulang instance:
+
+```javascript
+grid.setXLabelStep(2);
+```
+
+Membaca nilai saat ini:
+
+```javascript
+const step = grid.getXLabelStep();
+```
+
+Nilai harus lebih besar dari `0`. Nilai desimal dibulatkan ke bawah, dengan minimum `1`.
+
+
 ### `render()`
 
 Memaksa gambar ulang:
@@ -749,6 +767,7 @@ const grid = new InteractiveGrid('#grafik', {
   columns: 17,
   rows: 11,
   xStart: 0,
+  xLabelStep: 1, // tampilkan angka setiap 1 kolom; alias: step
   yStart: 0,
   cellWidth: 54,
   cellHeight: 42,
@@ -839,6 +858,94 @@ const grid = new InteractiveGrid('#grafik', {
 
 Jika `xColor` dihapus, `null`, atau string kosong, warna X otomatis memakai `markColor`. Hal yang sama berlaku untuk `dotColor`.
 
+### Mengatur interval angka sumbu X: `xLabelStep`
+
+`xLabelStep` menentukan **setiap berapa kolom angka pada sumbu X ditampilkan**.
+
+Default:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+  xStart: 0,
+  xLabelStep: 1
+});
+```
+
+Dengan `columns: 17`, koordinat X tetap `0..16`. Karena `xLabelStep: 1`, semua angka tampil:
+
+```text
+0  1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16
+```
+
+Jika:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+  xStart: 0,
+  xLabelStep: 2
+});
+```
+
+maka angka yang terlihat menjadi:
+
+```text
+0     2     4     6     8     10     12     14     16
+```
+
+Grid tetap memiliki semua kolom dan semua koordinat `0..16`. Jadi koordinat seperti `(1,5)`, `(3,7)`, atau `(15,4)` tetap dapat dipilih walaupun angka `1`, `3`, dan `15` tidak ditampilkan.
+
+Alias singkat `step` juga dapat digunakan:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+  step: 2
+});
+```
+
+`xLabelStep` adalah nama yang direkomendasikan. Jika `xLabelStep` dan `step` diberikan bersamaan, `xLabelStep` memiliki prioritas.
+
+Contoh:
+
+```javascript
+xLabelStep: 3
+```
+
+menampilkan:
+
+```text
+0        3        6        9        12        15
+```
+
+Jika `xStart` bukan `0`, step dihitung berdasarkan urutan kolom dari titik awal. Contoh:
+
+```javascript
+xStart: 1,
+columns: 10,
+xLabelStep: 2
+```
+
+menampilkan:
+
+```text
+1     3     5     7     9
+```
+
+> `xLabelStep` hanya mengubah tampilan label angka. Jumlah kolom, posisi grid, koordinat klik, data, garis interaktif, dan permanent line tidak berubah.
+
+Nilainya juga dapat diubah setelah instance dibuat:
+
+```javascript
+grid.setXLabelStep(2);
+console.log(grid.getXLabelStep()); // 2
+```
+
+
 ### Arti `columns` dan `rows`
 
 `columns: 17` berarti tersedia 17 titik X: `0..16`.
@@ -928,7 +1035,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.2.0
+console.log(InteractiveGrid.VERSION); // 1.3.0
 ```
 
 ## Lisensi
@@ -960,6 +1067,14 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v1.3.0
+- Menambahkan `xLabelStep` untuk mengatur setiap berapa kolom angka sumbu X ditampilkan.
+- Menambahkan `step` sebagai alias dari `xLabelStep`.
+- Default tetap `xLabelStep: 1`, sehingga perilaku lama tidak berubah.
+- Pengaturan ini hanya memengaruhi label angka; grid, koordinat, data, marker, dan garis tetap sama.
+- Menambahkan API `setXLabelStep(step)` dan `getXLabelStep()`.
+
 
 ### v1.2.2
 - Menambahkan `xColor` sebagai warna global khusus penanda X.
