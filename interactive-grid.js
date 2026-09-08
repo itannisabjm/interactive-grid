@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.1.1
+/* InteractiveGrid v1.2.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -24,6 +24,10 @@
     showUndo: true,
     showClear: true,
     lineWidth: 4,
+    // Penanda biasa/interaktif. dotSize/xSize adalah nama utama.
+    // markSize/xMarkSize dipertahankan sebagai alias kompatibilitas versi lama.
+    dotSize: 10,
+    xSize: 13,
     markSize: 10,
     xMarkSize: 13,
     markStrokeWidth: 5,
@@ -47,9 +51,25 @@
     return out;
   }
 
+  function cloneMarkStyles(styles) {
+    styles = styles || {};
+    var out = {};
+    ['dot', 'x'].forEach(function (type) {
+      if (!styles[type]) return;
+      out[type] = {};
+      if (styles[type].color != null) out[type].color = styles[type].color;
+      if (styles[type].size != null) out[type].size = styles[type].size;
+      if (styles[type].strokeWidth != null) out[type].strokeWidth = styles[type].strokeWidth;
+    });
+    return out;
+  }
+
   function clonePoints(points) {
     return points.map(function (p) {
-      return { x: p.x, y: p.y, types: p.types.slice() };
+      var out = { x: p.x, y: p.y, types: p.types.slice() };
+      var styles = cloneMarkStyles(p.styles);
+      if (Object.keys(styles).length) out.styles = styles;
+      return out;
     });
   }
 
@@ -82,6 +102,11 @@
     if (!this.el) throw new Error('InteractiveGrid: target element tidak ditemukan.');
 
     this.options = merge(DEFAULTS, options || {});
+    // Alias opsi lama -> nama baru, tanpa merusak implementasi lama.
+    if (options && options.dotSize == null && options.markSize != null) this.options.dotSize = Number(options.markSize);
+    if (options && options.xSize == null && options.xMarkSize != null) this.options.xSize = Number(options.xMarkSize);
+    this.options.markSize = this.options.dotSize;
+    this.options.xMarkSize = this.options.xSize;
     this.points = [];
     this.permanentData = [];
     this._permanentSeq = 0;
@@ -103,6 +128,9 @@
     this.el.style.setProperty('--ig-cell-h', o.cellHeight + 'px');
     this.el.style.setProperty('--ig-line', o.lineColor);
     this.el.style.setProperty('--ig-mark', o.markColor);
+    this.el.style.setProperty('--ig-dot-size', o.dotSize + 'px');
+    this.el.style.setProperty('--ig-x-size', o.xSize + 'px');
+    this.el.style.setProperty('--ig-mark-stroke-width', o.markStrokeWidth + 'px');
 
     var toolbar = document.createElement('div');
     toolbar.className = 'ig-toolbar' + (o.showToolbar ? '' : ' ig-hidden');
@@ -351,7 +379,7 @@
       self.dom.menu.style.top = y + 'px';
     });
 
-    if (typeof this.options.onSelect === 'function') this.options.onSelect({ x: cell.x, y: cell.y, point: point ? {x:point.x,y:point.y,types:point.types.slice()} : null });
+    if (typeof this.options.onSelect === 'function') this.options.onSelect({ x: cell.x, y: cell.y, point: point ? clonePoints([point])[0] : null });
   };
 
   InteractiveGrid.prototype._hideMenu = function () {
@@ -390,13 +418,13 @@
       this._svg('circle', {
         cx: p.px,
         cy: p.py,
-        r: options.markSize != null ? options.markSize : this.options.markSize,
+        r: options.markSize != null ? options.markSize : this.options.dotSize,
         fill: color
       });
       return;
     }
     if (type === 'x') {
-      var s = options.xMarkSize != null ? options.xMarkSize : this.options.xMarkSize;
+      var s = options.xMarkSize != null ? options.xMarkSize : this.options.xSize;
       var sw = options.markStrokeWidth != null ? options.markStrokeWidth : this.options.markStrokeWidth;
       this._svg('line', { x1:p.px-s, y1:p.py-s, x2:p.px+s, y2:p.py+s, stroke:color, 'stroke-width':sw, 'stroke-linecap':'round' });
       this._svg('line', { x1:p.px+s, y1:p.py-s, x2:p.px-s, y2:p.py+s, stroke:color, 'stroke-width':sw, 'stroke-linecap':'round' });
@@ -470,6 +498,35 @@
     }
   };
 
+  InteractiveGrid.prototype._normalizePointMarkStyle = function (type, style) {
+    style = style || {};
+    var sizeCandidate = style.size;
+    if (!(Number(sizeCandidate) > 0)) {
+      sizeCandidate = type === 'dot' ? style.dotSize : style.xSize;
+    }
+    // Alias kompatibilitas bila style dikirim memakai nama opsi lama.
+    if (!(Number(sizeCandidate) > 0)) {
+      sizeCandidate = type === 'dot' ? style.markSize : style.xMarkSize;
+    }
+    var out = {};
+    var color = style.color != null ? style.color : style.markColor;
+    if (color != null && String(color).trim()) out.color = String(color);
+    if (Number(sizeCandidate) > 0) out.size = Number(sizeCandidate);
+    if (type === 'x' && Number(style.strokeWidth != null ? style.strokeWidth : style.markStrokeWidth) > 0) {
+      out.strokeWidth = Number(style.strokeWidth != null ? style.strokeWidth : style.markStrokeWidth);
+    }
+    return out;
+  };
+
+  InteractiveGrid.prototype._resolvePointMarkStyle = function (point, type) {
+    var style = point && point.styles && point.styles[type] ? point.styles[type] : {};
+    return {
+      color: style.color || this.options.markColor,
+      size: Number(style.size) > 0 ? Number(style.size) : (type === 'dot' ? this.options.dotSize : this.options.xSize),
+      strokeWidth: Number(style.strokeWidth) > 0 ? Number(style.strokeWidth) : this.options.markStrokeWidth
+    };
+  };
+
   InteractiveGrid.prototype.render = function () {
     if (this.destroyed) return this;
     var ov = this.dom.overlay;
@@ -488,8 +545,14 @@
       var pt = this.points[j];
       var ii = this._internalXY(pt.x, pt.y);
       var p = this._coords(ii.x, ii.y);
-      if (pt.types.indexOf('dot') >= 0) this._drawMark(p, 'dot', this.options.markColor);
-      if (pt.types.indexOf('x') >= 0) this._drawMark(p, 'x', this.options.markColor);
+      if (pt.types.indexOf('dot') >= 0) {
+        var dotStyle = this._resolvePointMarkStyle(pt, 'dot');
+        this._drawMark(p, 'dot', dotStyle.color, { markSize: dotStyle.size });
+      }
+      if (pt.types.indexOf('x') >= 0) {
+        var xStyle = this._resolvePointMarkStyle(pt, 'x');
+        this._drawMark(p, 'x', xStyle.color, { xMarkSize: xStyle.size, markStrokeWidth: xStyle.strokeWidth });
+      }
     }
 
     var total = this.points.reduce(function (n, p) { return n + p.types.length; }, 0);
@@ -497,17 +560,53 @@
     return this;
   };
 
-  InteractiveGrid.prototype.addPoint = function (x, y, type) {
+  InteractiveGrid.prototype.addPoint = function (x, y, type, style) {
     x = Number(x); y = Number(y);
     if (!this._validCoord(x, y)) throw new Error('InteractiveGrid.addPoint: koordinat di luar area grid.');
     if (!isValidType(type)) throw new Error('InteractiveGrid.addPoint: type harus "dot" atau "x".');
     var point = this._find(x, y);
-    if (point && point.types.indexOf(type) >= 0) return this;
+    var exists = point && point.types.indexOf(type) >= 0;
+    var normalizedStyle = this._normalizePointMarkStyle(type, style);
+    var hasStyle = Object.keys(normalizedStyle).length > 0;
+    if (exists && !hasStyle) return this;
+
     this._pushHistory();
-    if (!point) { point = { x:x, y:y, types:[] }; this.points.push(point); }
-    point.types.push(type);
+    if (!point) { point = { x:x, y:y, types:[], styles:{} }; this.points.push(point); }
+    if (!point.styles) point.styles = {};
+    if (!exists) point.types.push(type);
+    if (hasStyle) point.styles[type] = normalizedStyle;
     this.render();
-    this._emitChange('add');
+    this._emitChange(exists ? 'style' : 'add');
+    return this;
+  };
+
+  InteractiveGrid.prototype.updatePointMark = function (x, y, type, style) {
+    x = Number(x); y = Number(y);
+    if (!isValidType(type)) throw new Error('InteractiveGrid.updatePointMark: type harus "dot" atau "x".');
+    var point = this._find(x, y);
+    if (!point || point.types.indexOf(type) < 0) return this;
+    var normalizedStyle = this._normalizePointMarkStyle(type, style);
+    this._pushHistory();
+    if (!point.styles) point.styles = {};
+    point.styles[type] = normalizedStyle;
+    this.render();
+    this._emitChange('style');
+    return this;
+  };
+
+  // Alias yang lebih umum untuk API update style.
+  InteractiveGrid.prototype.setPointStyle = InteractiveGrid.prototype.updatePointMark;
+
+  InteractiveGrid.prototype.resetPointMarkStyle = function (x, y, type) {
+    x = Number(x); y = Number(y);
+    if (!isValidType(type)) throw new Error('InteractiveGrid.resetPointMarkStyle: type harus "dot" atau "x".');
+    var point = this._find(x, y);
+    if (!point || point.types.indexOf(type) < 0 || !point.styles || !point.styles[type]) return this;
+    this._pushHistory();
+    delete point.styles[type];
+    if (!Object.keys(point.styles).length) delete point.styles;
+    this.render();
+    this._emitChange('style');
     return this;
   };
 
@@ -522,6 +621,10 @@
     if (!type) this.points.splice(idx, 1);
     else {
       this.points[idx].types = this.points[idx].types.filter(function (t) { return t !== type; });
+      if (this.points[idx].styles) {
+        delete this.points[idx].styles[type];
+        if (!Object.keys(this.points[idx].styles).length) delete this.points[idx].styles;
+      }
       if (!this.points[idx].types.length) this.points.splice(idx, 1);
     }
     this.render(); // otomatis menyambung koordinat sebelum & sesudah yang dihapus
@@ -686,8 +789,33 @@
       if (!types.length) continue;
       var existing = null;
       for (var j = 0; j < normalized.length; j++) if (normalized[j].x === x && normalized[j].y === y) { existing = normalized[j]; break; }
-      if (!existing) normalized.push({ x:x, y:y, types:types.slice() });
-      else types.forEach(function (t) { if (existing.types.indexOf(t) < 0) existing.types.push(t); });
+      var pointStyles = {};
+      var commonStyle = {
+        markColor: p.markColor,
+        dotSize: p.dotSize,
+        xSize: p.xSize,
+        markSize: p.markSize,
+        xMarkSize: p.xMarkSize,
+        markStrokeWidth: p.markStrokeWidth
+      };
+      types.forEach(function (t) {
+        var mergedStyle = merge(commonStyle, p.styles && p.styles[t] ? p.styles[t] : {});
+        var st = this._normalizePointMarkStyle(t, mergedStyle);
+        if (Object.keys(st).length) pointStyles[t] = st;
+      }, this);
+      if (!existing) {
+        var np = { x:x, y:y, types:types.slice() };
+        if (Object.keys(pointStyles).length) np.styles = pointStyles;
+        normalized.push(np);
+      } else {
+        types.forEach(function (t) {
+          if (existing.types.indexOf(t) < 0) existing.types.push(t);
+          if (pointStyles[t]) {
+            if (!existing.styles) existing.styles = {};
+            existing.styles[t] = pointStyles[t];
+          }
+        });
+      }
     }
     if (!options.silent) this._pushHistory();
     this.points = normalized;
@@ -715,7 +843,7 @@
 
   InteractiveGrid.prototype.getPoint = function (x, y) {
     var p = this._find(Number(x), Number(y));
-    return p ? { x:p.x, y:p.y, types:p.types.slice() } : null;
+    return p ? clonePoints([p])[0] : null;
   };
 
   InteractiveGrid.prototype.hasPoint = function (x, y, type) {
@@ -738,6 +866,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.1.1';
+  InteractiveGrid.VERSION = '1.2.0';
   return InteractiveGrid;
 });
