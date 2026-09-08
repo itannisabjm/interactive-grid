@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.0.0
+/* InteractiveGrid v1.0.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -143,35 +143,48 @@
   InteractiveGrid.prototype._layout = function () {
     var o = this.options;
     var labelW = 48, axisH = 38, timeH = 54;
+    // Ruang ekstra di atas mencegah label Y tertinggi (mis. 10) terpotong.
+    // Ruang di kanan memberi tempat untuk label X terakhir dan tanda pada batas kanan.
+    var topPad = Math.ceil(o.cellHeight / 2) + 4;
+    var rightPad = Math.ceil(o.cellWidth / 2) + 4;
     var gridW = (o.columns - 1) * o.cellWidth;
     var gridH = (o.rows - 1) * o.cellHeight;
-    var chartW = labelW + gridW;
-    var chartH = gridH + axisH + timeH;
+    var chartW = labelW + gridW + rightPad;
+    var chartH = topPad + gridH + axisH + timeH;
+
+    this._metrics = {
+      labelW: labelW, axisH: axisH, timeH: timeH,
+      topPad: topPad, rightPad: rightPad, gridW: gridW, gridH: gridH
+    };
 
     this.dom.chart.style.width = chartW + 'px';
     this.dom.chart.style.height = chartH + 'px';
+    this.dom.grid.style.top = topPad + 'px';
     this.dom.grid.style.width = gridW + 'px';
     this.dom.grid.style.height = gridH + 'px';
+    this.dom.interaction.style.top = topPad + 'px';
     this.dom.interaction.style.width = gridW + 'px';
     this.dom.interaction.style.height = gridH + 'px';
     this.dom.overlay.setAttribute('width', gridW);
     this.dom.overlay.setAttribute('height', gridH);
+    this.dom.overlay.style.top = topPad + 'px';
     this.dom.overlay.style.width = gridW + 'px';
     this.dom.overlay.style.height = gridH + 'px';
 
+    this.dom.yLabels.style.top = topPad + 'px';
     this.dom.yLabels.style.height = gridH + 'px';
     this.dom.yLabels.style.gridTemplateRows = 'repeat(' + o.rows + ', ' + o.cellHeight + 'px)';
     this.dom.yLabels.style.transform = 'translateY(-' + (o.cellHeight / 2) + 'px)';
 
-    this.dom.xLabels.style.top = gridH + 'px';
+    this.dom.xLabels.style.top = (topPad + gridH) + 'px';
     this.dom.xLabels.style.width = gridW + 'px';
     this.dom.xLabels.style.height = axisH + 'px';
     this.dom.xLabels.style.gridTemplateColumns = 'repeat(' + o.columns + ', ' + o.cellWidth + 'px)';
     this.dom.xLabels.style.transform = 'translateX(-' + (o.cellWidth / 2) + 'px)';
 
-    this.dom.timeLabel.style.top = (gridH + axisH) + 'px';
+    this.dom.timeLabel.style.top = (topPad + gridH + axisH) + 'px';
     this.dom.timeLabel.style.height = timeH + 'px';
-    this.dom.timeCells.style.top = (gridH + axisH) + 'px';
+    this.dom.timeCells.style.top = (topPad + gridH + axisH) + 'px';
     this.dom.timeCells.style.width = gridW + 'px';
     this.dom.timeCells.style.height = timeH + 'px';
   };
@@ -274,8 +287,9 @@
     if (!cell) { this.dom.hoverPlus.style.opacity = '0'; return; }
     var i = this._internalXY(cell.x, cell.y);
     var p = this._coords(i.x, i.y);
-    this.dom.hoverPlus.style.left = (48 + p.px) + 'px';
-    this.dom.hoverPlus.style.top = p.py + 'px';
+    var m = this._metrics || { labelW: 48, topPad: 0 };
+    this.dom.hoverPlus.style.left = (m.labelW + p.px) + 'px';
+    this.dom.hoverPlus.style.top = (m.topPad + p.py) + 'px';
     this.dom.hoverPlus.style.opacity = '1';
   };
 
@@ -296,8 +310,9 @@
     requestAnimationFrame(function () {
       var i = self._internalXY(cell.x, cell.y);
       var p = self._coords(i.x, i.y);
-      var x = 48 + p.px + 16;
-      var y = p.py - 58;
+      var m = self._metrics || { labelW: 48, topPad: 0 };
+      var x = m.labelW + p.px + 16;
+      var y = m.topPad + p.py - 58;
       var mw = self.dom.menu.offsetWidth || 200;
       var mh = self.dom.menu.offsetHeight || 130;
       x = Math.max(4, Math.min(x, self.dom.chart.clientWidth - mw - 4));
@@ -468,6 +483,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.0.0';
+  InteractiveGrid.VERSION = '1.0.1';
   return InteractiveGrid;
 });

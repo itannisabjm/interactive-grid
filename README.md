@@ -474,3 +474,11 @@ console.log(InteractiveGrid.VERSION); // 1.0.0
 ## Lisensi
 
 Kode ini dapat digunakan dan dimodifikasi pada proyek internal Anda. Jika nantinya plugin akan didistribusikan sebagai library publik, sebaiknya tambahkan file lisensi formal (misalnya MIT) dan versioning/changelog.
+
+
+## Changelog
+
+### v1.0.1
+- Menambah ruang atas agar label Y tertinggi tidak terpotong.
+- Menambah ruang kanan agar label X terakhir tetap terlihat.
+- Menambahkan garis batas kanan dan bawah pada area grid, sehingga koordinat terakhir (mis. X=16 dan Y=0) memiliki garis yang jelas.

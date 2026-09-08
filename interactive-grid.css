@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.0.0 - framework agnostic */
+/* InteractiveGrid v1.0.1 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -55,6 +55,9 @@
   background-size: var(--ig-cell-w) var(--ig-cell-h);
   border-top: 1px solid var(--ig-grid-color);
   border-left: 1px solid var(--ig-grid-color);
+  /* Pastikan garis batas koordinat terakhir (kanan dan bawah) selalu terlihat. */
+  border-right: 1px solid var(--ig-grid-color);
+  border-bottom: 1px solid var(--ig-grid-color);
 }
 
 .ig-y-labels,
@@ -96,6 +99,7 @@
   left: var(--ig-label-w);
   border-top: 1px solid var(--ig-grid-color);
   border-bottom: 1px solid var(--ig-grid-color);
+  border-right: 1px solid var(--ig-grid-color);
   background-image: linear-gradient(to right, var(--ig-grid-color) 1px, transparent 1px);
   background-size: var(--ig-cell-w) 100%;
 }
