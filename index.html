@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Contoh InteractiveGrid</title>
+  <link rel="stylesheet" href="interactive-grid.css">
+</head>
+<body>
+  <div id="grafik"></div>
+
+  <script src="interactive-grid.js"></script>
+  <script>
+    const grid = new InteractiveGrid('#grafik', {
+      columns: 17,
+      rows: 11,
+      xAxisTitle: 'Waktu',
+      xAxisSubtitle: '(Jam)'
+    });
+
+    // contoh data awal
+    grid.addPoint(1, 4, 'dot');
+    grid.addPoint(3, 7, 'x');
+    grid.addPoint(5, 5, 'dot');
+  </script>
+</body>
+</html>
