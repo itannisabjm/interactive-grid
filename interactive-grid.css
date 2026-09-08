@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.1.0 - framework agnostic */
+/* InteractiveGrid v1.2.1 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -9,6 +9,8 @@
   --ig-bg: #fff;
   --ig-accent: #1fb657;
   --ig-mark: #111;
+  --ig-dot-color: var(--ig-mark);
+  --ig-x-color: var(--ig-mark);
   --ig-line: #18a94d;
   position: relative;
   font-family: Arial, Helvetica, sans-serif;
@@ -178,7 +180,7 @@
 .ig-delete-all { width:100%; height:34px; border-color:#d33; color:#b11; font-size:12px; }
 .ig-delete-all:hover { background:#fff1f1; }
 
-.ig-dot-preview { width:calc(var(--ig-dot-size) * 2); height:calc(var(--ig-dot-size) * 2); border-radius:50%; background:var(--ig-mark); }
+.ig-dot-preview { width:calc(var(--ig-dot-size) * 2); height:calc(var(--ig-dot-size) * 2); border-radius:50%; background:var(--ig-dot-color); }
 .ig-x-preview {
   position:relative;
   width:calc(var(--ig-x-size) * 2);
@@ -192,7 +194,7 @@
   top:0;
   width:var(--ig-mark-stroke-width);
   height:100%;
-  background:var(--ig-mark);
+  background:var(--ig-x-color);
   border-radius:2px;
   transform-origin:center;
 }
