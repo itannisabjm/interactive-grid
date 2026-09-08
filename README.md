@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.1.0**
+**Versi: 1.1.1**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -12,7 +12,7 @@ Fitur utama:
 - Jika sebuah koordinat dihapus seluruhnya, garis otomatis menyambungkan koordinat sebelum dan sesudahnya.
 - Bisa menghapus hanya ● atau hanya X pada koordinat yang memiliki dua tanda.
 - API untuk tambah/hapus/get/set/clear/undo/JSON.
-- **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran.
+- **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
 - Bisa digunakan pada HTML biasa, PHP, React, Laravel, Vue, Next.js, dan aplikasi web lain.
@@ -54,30 +54,6 @@ Pastikan ketiga file berada dalam folder `interactive-grid`.
     grid.addPoint(1, 4, 'dot');
     grid.addPoint(3, 7, 'x');
     grid.addPoint(5, 5, 'dot');
-
-    grid.addPermanentLine({
-      id: 'waspada',
-
-      from: {
-        x: 2,
-        y: 2,
-        type: 'dot'
-      },
-
-      to: {
-        x: 8,
-        y: 8,
-        type: 'dot'
-      },
-
-      lineColor: '#FF0000',
-      lineWidth: 4,
-
-      text: 'waspada',
-      textColor: '#111111',
-      textSize: 34,
-      textOffset: 26
-    });
   </script>
 </body>
 </html>
@@ -250,6 +226,12 @@ grid.addPermanentLine({
   lineColor: '#20a957',
   lineWidth: 4,
 
+  // Pengaturan marker permanen (berlaku untuk kedua ujung)
+  markColor: '#111111',
+  dotSize: 10,
+  xSize: 14,
+  markStrokeWidth: 5,
+
   text: 'waspada',
   textColor: '#111111',
   textSize: 34,
@@ -270,6 +252,96 @@ grid.addPermanentLine({
   text: 'Batas',
   textColor: '#b91c1c',
   textSize: 24
+});
+```
+
+
+### Mengatur ukuran dan warna marker permanent line
+
+Marker permanen sekarang dapat diatur terpisah dari marker data interaktif.
+
+Pengaturan yang berlaku untuk **kedua ujung garis**:
+
+```javascript
+grid.addPermanentLine({
+  id: 'contoh-marker',
+  from: { x: 2, y: 2, type: 'dot' },
+  to:   { x: 8, y: 8, type: 'x' },
+
+  lineColor: '#22a957',
+
+  // Warna marker kedua ujung
+  markColor: '#7c3aed',
+
+  // Radius tanda bulat dalam pixel
+  dotSize: 12,
+
+  // Setengah ukuran X dalam pixel
+  xSize: 17,
+
+  // Ketebalan goresan X
+  markStrokeWidth: 6,
+
+  text: 'waspada'
+});
+```
+
+Jika kedua ujung perlu memiliki warna atau ukuran berbeda, atur langsung pada `from` dan `to`:
+
+```javascript
+grid.addPermanentLine({
+  id: 'marker-berbeda',
+
+  from: {
+    x: 2,
+    y: 2,
+    type: 'dot',
+    color: '#2563eb',
+    size: 14
+  },
+
+  to: {
+    x: 8,
+    y: 8,
+    type: 'x',
+    color: '#dc2626',
+    size: 20,
+    strokeWidth: 7
+  },
+
+  lineColor: '#16a34a',
+  text: 'waspada',
+  textColor: '#111',
+  textSize: 30,
+  markColor: '#111',
+  dotSize: 12,
+  xSize: 16
+});
+```
+
+Prioritas pengaturan marker adalah:
+
+1. `from.color` / `to.color` dan `from.size` / `to.size` jika diberikan.
+2. `markColor`, `dotSize`, `xSize`, `markStrokeWidth` milik permanent line.
+3. Opsi default plugin `permanentMarkColor`, `permanentDotSize`, `permanentXSize`, dan `permanentMarkStrokeWidth`.
+
+Marker dapat diubah setelah dibuat:
+
+```javascript
+grid.updatePermanentLine('waspada', {
+  markColor: '#dc2626',
+  dotSize: 14,
+  xSize: 18,
+  markStrokeWidth: 6
+});
+```
+
+Atau hanya salah satu ujung:
+
+```javascript
+grid.updatePermanentLine('waspada', {
+  from: { color: '#2563eb', size: 16 },
+  to:   { color: '#dc2626', size: 20, strokeWidth: 7 }
 });
 ```
 
@@ -647,7 +719,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.0.0
+console.log(InteractiveGrid.VERSION); // 1.1.1
 ```
 
 ## Lisensi
@@ -657,18 +729,29 @@ Kode ini dapat digunakan dan dimodifikasi pada proyek internal Anda. Jika nantin
 
 ## Changelog
 
+### v1.1.1
+- Permanent line mendukung warna marker melalui `markColor`.
+- Ukuran tanda bulat dan X dapat diatur melalui `dotSize` dan `xSize`.
+- Ketebalan X dapat diatur melalui `markStrokeWidth`.
+- `from` dan `to` dapat memiliki `color`, `size`, dan `strokeWidth` masing-masing.
+- `updatePermanentLine()` mendukung perubahan parsial marker pada salah satu ujung tanpa harus mengirim ulang koordinat.
+
 ### v1.0.1
 - Menambah ruang atas agar label Y tertinggi tidak terpotong.
 - Menambah ruang kanan agar label X terakhir tetap terlihat.
 - Menambahkan garis batas kanan dan bawah pada area grid, sehingga koordinat terakhir (mis. X=16 dan Y=0) memiliki garis yang jelas.
 
 
-## Opsi tambahan v1.1.0
+## Opsi tambahan v1.1.1
 
 ```javascript
 const grid = new InteractiveGrid('#grafik', {
   // ...opsi lama...
   permanentLineWidth: 4,
+  permanentMarkColor: '#111',
+  permanentDotSize: 10,
+  permanentXSize: 13,
+  permanentMarkStrokeWidth: 5,
   permanentTextOffset: 24,
   permanentTextFontFamily: 'Arial, Helvetica, sans-serif'
 });

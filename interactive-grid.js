@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.1.0
+/* InteractiveGrid v1.1.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -30,6 +30,10 @@
     lineColor: '#18a94d',
     markColor: '#111',
     permanentLineWidth: 4,
+    permanentMarkColor: '#111',
+    permanentDotSize: 10,
+    permanentXSize: 13,
+    permanentMarkStrokeWidth: 5,
     permanentTextOffset: 24,
     permanentTextFontFamily: 'Arial, Helvetica, sans-serif',
     onChange: null,
@@ -53,10 +57,14 @@
     return items.map(function (item) {
       return {
         id: item.id,
-        from: { x: item.from.x, y: item.from.y, type: item.from.type },
-        to: { x: item.to.x, y: item.to.y, type: item.to.type },
+        from: { x: item.from.x, y: item.from.y, type: item.from.type, color: item.from.color, size: item.from.size, strokeWidth: item.from.strokeWidth },
+        to: { x: item.to.x, y: item.to.y, type: item.to.type, color: item.to.color, size: item.to.size, strokeWidth: item.to.strokeWidth },
         lineColor: item.lineColor,
         lineWidth: item.lineWidth,
+        markColor: item.markColor,
+        dotSize: item.dotSize,
+        xSize: item.xSize,
+        markStrokeWidth: item.markStrokeWidth,
         text: item.text,
         textColor: item.textColor,
         textSize: item.textSize,
@@ -414,8 +422,23 @@
         'data-permanent-id': item.id
       });
 
-      this._drawMark(p1, item.from.type, this.options.markColor);
-      this._drawMark(p2, item.to.type, this.options.markColor);
+      var fromColor = item.from.color || item.markColor;
+      var toColor = item.to.color || item.markColor;
+      var fromSize = Number(item.from.size) > 0 ? Number(item.from.size) : (item.from.type === 'x' ? item.xSize : item.dotSize);
+      var toSize = Number(item.to.size) > 0 ? Number(item.to.size) : (item.to.type === 'x' ? item.xSize : item.dotSize);
+      var fromStroke = Number(item.from.strokeWidth) > 0 ? Number(item.from.strokeWidth) : item.markStrokeWidth;
+      var toStroke = Number(item.to.strokeWidth) > 0 ? Number(item.to.strokeWidth) : item.markStrokeWidth;
+
+      this._drawMark(p1, item.from.type, fromColor, {
+        markSize: fromSize,
+        xMarkSize: fromSize,
+        markStrokeWidth: fromStroke
+      });
+      this._drawMark(p2, item.to.type, toColor, {
+        markSize: toSize,
+        xMarkSize: toSize,
+        markStrokeWidth: toStroke
+      });
 
       if (item.text) {
         var ax = p1.px, ay = p1.py, bx = p2.px, by = p2.py;
@@ -519,10 +542,24 @@
     var id = item.id != null && String(item.id).trim() ? String(item.id) : fallbackId;
     return {
       id: id,
-      from: { x: fx, y: fy, type: fromType },
-      to: { x: tx, y: ty, type: toType },
+      from: {
+        x: fx, y: fy, type: fromType,
+        color: from.color || null,
+        size: Number(from.size) > 0 ? Number(from.size) : null,
+        strokeWidth: Number(from.strokeWidth) > 0 ? Number(from.strokeWidth) : null
+      },
+      to: {
+        x: tx, y: ty, type: toType,
+        color: to.color || null,
+        size: Number(to.size) > 0 ? Number(to.size) : null,
+        strokeWidth: Number(to.strokeWidth) > 0 ? Number(to.strokeWidth) : null
+      },
       lineColor: item.lineColor || this.options.lineColor,
       lineWidth: Number(item.lineWidth) > 0 ? Number(item.lineWidth) : this.options.permanentLineWidth,
+      markColor: item.markColor || this.options.permanentMarkColor || this.options.markColor,
+      dotSize: Number(item.dotSize) > 0 ? Number(item.dotSize) : this.options.permanentDotSize,
+      xSize: Number(item.xSize) > 0 ? Number(item.xSize) : this.options.permanentXSize,
+      markStrokeWidth: Number(item.markStrokeWidth) > 0 ? Number(item.markStrokeWidth) : this.options.permanentMarkStrokeWidth,
       text: item.text == null ? '' : String(item.text),
       textColor: item.textColor || this.options.markColor,
       textSize: Number(item.textSize) > 0 ? Number(item.textSize) : 28,
@@ -580,10 +617,14 @@
         patch = patch || {};
         var merged = {
           id: id,
-          from: patch.from || current.from,
-          to: patch.to || current.to,
+          from: patch.from ? merge(current.from, patch.from) : current.from,
+          to: patch.to ? merge(current.to, patch.to) : current.to,
           lineColor: patch.lineColor != null ? patch.lineColor : current.lineColor,
           lineWidth: patch.lineWidth != null ? patch.lineWidth : current.lineWidth,
+          markColor: patch.markColor != null ? patch.markColor : current.markColor,
+          dotSize: patch.dotSize != null ? patch.dotSize : current.dotSize,
+          xSize: patch.xSize != null ? patch.xSize : current.xSize,
+          markStrokeWidth: patch.markStrokeWidth != null ? patch.markStrokeWidth : current.markStrokeWidth,
           text: patch.text != null ? patch.text : current.text,
           textColor: patch.textColor != null ? patch.textColor : current.textColor,
           textSize: patch.textSize != null ? patch.textSize : current.textSize,
@@ -697,6 +738,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.1.0';
+  InteractiveGrid.VERSION = '1.1.1';
   return InteractiveGrid;
 });
