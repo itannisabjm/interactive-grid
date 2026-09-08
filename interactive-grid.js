@@ -1,0 +1,473 @@
+/* InteractiveGrid v1.0.0
+ * Framework-agnostic interactive grid chart.
+ * Global: window.InteractiveGrid
+ * CommonJS: module.exports = InteractiveGrid
+ */
+(function (global, factory) {
+  var InteractiveGrid = factory();
+  if (typeof module === 'object' && module.exports) module.exports = InteractiveGrid;
+  if (global) global.InteractiveGrid = InteractiveGrid;
+})(typeof window !== 'undefined' ? window : this, function () {
+  'use strict';
+
+  var DEFAULTS = {
+    columns: 17,          // x = 0..16
+    rows: 11,             // y = 0..10
+    xStart: 0,
+    yStart: 0,
+    cellWidth: 54,
+    cellHeight: 42,
+    xAxisTitle: 'Waktu',
+    xAxisSubtitle: '(Jam)',
+    showToolbar: true,
+    showStatus: true,
+    showUndo: true,
+    showClear: true,
+    lineWidth: 4,
+    markSize: 10,
+    xMarkSize: 13,
+    markStrokeWidth: 5,
+    lineColor: '#18a94d',
+    markColor: '#111',
+    onChange: null,
+    onSelect: null
+  };
+
+  function merge(a, b) {
+    var out = {};
+    Object.keys(a).forEach(function (k) { out[k] = a[k]; });
+    if (b) Object.keys(b).forEach(function (k) { out[k] = b[k]; });
+    return out;
+  }
+
+  function clonePoints(points) {
+    return points.map(function (p) {
+      return { x: p.x, y: p.y, types: p.types.slice() };
+    });
+  }
+
+  function isValidType(type) { return type === 'dot' || type === 'x'; }
+
+  function InteractiveGrid(target, options) {
+    if (!(this instanceof InteractiveGrid)) return new InteractiveGrid(target, options);
+    this.el = typeof target === 'string' ? document.querySelector(target) : target;
+    if (!this.el) throw new Error('InteractiveGrid: target element tidak ditemukan.');
+
+    this.options = merge(DEFAULTS, options || {});
+    this.points = [];
+    this.history = [];
+    this.pendingCell = null;
+    this.destroyed = false;
+    this._bound = [];
+
+    this._build();
+    this._bindEvents();
+    this.render();
+  }
+
+  InteractiveGrid.prototype._build = function () {
+    var o = this.options;
+    this.el.innerHTML = '';
+    this.el.classList.add('ig-root');
+    this.el.style.setProperty('--ig-cell-w', o.cellWidth + 'px');
+    this.el.style.setProperty('--ig-cell-h', o.cellHeight + 'px');
+    this.el.style.setProperty('--ig-line', o.lineColor);
+    this.el.style.setProperty('--ig-mark', o.markColor);
+
+    var toolbar = document.createElement('div');
+    toolbar.className = 'ig-toolbar' + (o.showToolbar ? '' : ' ig-hidden');
+    toolbar.innerHTML =
+      '<button type="button" class="ig-undo">Undo</button>' +
+      '<button type="button" class="ig-clear">Hapus Semua</button>';
+
+    var scroll = document.createElement('div');
+    scroll.className = 'ig-scroll';
+    var chart = document.createElement('div');
+    chart.className = 'ig-chart';
+    scroll.appendChild(chart);
+
+    chart.innerHTML =
+      '<div class="ig-y-labels"></div>' +
+      '<div class="ig-grid"></div>' +
+      '<div class="ig-x-labels"></div>' +
+      '<div class="ig-time-label"></div>' +
+      '<div class="ig-time-cells"></div>' +
+      '<svg class="ig-overlay" aria-hidden="true"></svg>' +
+      '<div class="ig-interaction" aria-label="Area interaksi grafik"></div>' +
+      '<div class="ig-hover-plus" aria-hidden="true"></div>' +
+      '<div class="ig-menu" role="dialog" aria-label="Pilihan tanda">' +
+        '<div class="ig-menu-title">Tambah tanda</div>' +
+        '<div class="ig-menu-section ig-add-section">' +
+          '<button type="button" class="ig-choice" data-type="dot" title="Tambah titik bulat"><span class="ig-dot-preview"></span></button>' +
+          '<button type="button" class="ig-choice" data-type="x" title="Tambah tanda X"><span class="ig-x-preview"></span></button>' +
+        '</div>' +
+        '<div class="ig-menu-section ig-delete-section">' +
+          '<div class="ig-menu-title">Hapus tanda di koordinat ini</div>' +
+          '<button type="button" class="ig-delete" data-delete-type="dot">Hapus ●</button>' +
+          '<button type="button" class="ig-delete" data-delete-type="x">Hapus X</button>' +
+          '<button type="button" class="ig-delete-all" data-delete-type="all">Hapus semua di titik</button>' +
+        '</div>' +
+      '</div>';
+
+    var status = document.createElement('div');
+    status.className = 'ig-status' + (o.showStatus ? '' : ' ig-hidden');
+
+    this.el.appendChild(toolbar);
+    this.el.appendChild(scroll);
+    this.el.appendChild(status);
+
+    this.dom = {
+      toolbar: toolbar,
+      undo: toolbar.querySelector('.ig-undo'),
+      clear: toolbar.querySelector('.ig-clear'),
+      chart: chart,
+      grid: chart.querySelector('.ig-grid'),
+      yLabels: chart.querySelector('.ig-y-labels'),
+      xLabels: chart.querySelector('.ig-x-labels'),
+      timeLabel: chart.querySelector('.ig-time-label'),
+      timeCells: chart.querySelector('.ig-time-cells'),
+      overlay: chart.querySelector('.ig-overlay'),
+      interaction: chart.querySelector('.ig-interaction'),
+      hoverPlus: chart.querySelector('.ig-hover-plus'),
+      menu: chart.querySelector('.ig-menu'),
+      deleteSection: chart.querySelector('.ig-delete-section'),
+      status: status
+    };
+
+    if (!o.showUndo) this.dom.undo.classList.add('ig-hidden');
+    if (!o.showClear) this.dom.clear.classList.add('ig-hidden');
+    this._layout();
+    this._renderLabels();
+  };
+
+  InteractiveGrid.prototype._layout = function () {
+    var o = this.options;
+    var labelW = 48, axisH = 38, timeH = 54;
+    var gridW = (o.columns - 1) * o.cellWidth;
+    var gridH = (o.rows - 1) * o.cellHeight;
+    var chartW = labelW + gridW;
+    var chartH = gridH + axisH + timeH;
+
+    this.dom.chart.style.width = chartW + 'px';
+    this.dom.chart.style.height = chartH + 'px';
+    this.dom.grid.style.width = gridW + 'px';
+    this.dom.grid.style.height = gridH + 'px';
+    this.dom.interaction.style.width = gridW + 'px';
+    this.dom.interaction.style.height = gridH + 'px';
+    this.dom.overlay.setAttribute('width', gridW);
+    this.dom.overlay.setAttribute('height', gridH);
+    this.dom.overlay.style.width = gridW + 'px';
+    this.dom.overlay.style.height = gridH + 'px';
+
+    this.dom.yLabels.style.height = gridH + 'px';
+    this.dom.yLabels.style.gridTemplateRows = 'repeat(' + o.rows + ', ' + o.cellHeight + 'px)';
+    this.dom.yLabels.style.transform = 'translateY(-' + (o.cellHeight / 2) + 'px)';
+
+    this.dom.xLabels.style.top = gridH + 'px';
+    this.dom.xLabels.style.width = gridW + 'px';
+    this.dom.xLabels.style.height = axisH + 'px';
+    this.dom.xLabels.style.gridTemplateColumns = 'repeat(' + o.columns + ', ' + o.cellWidth + 'px)';
+    this.dom.xLabels.style.transform = 'translateX(-' + (o.cellWidth / 2) + 'px)';
+
+    this.dom.timeLabel.style.top = (gridH + axisH) + 'px';
+    this.dom.timeLabel.style.height = timeH + 'px';
+    this.dom.timeCells.style.top = (gridH + axisH) + 'px';
+    this.dom.timeCells.style.width = gridW + 'px';
+    this.dom.timeCells.style.height = timeH + 'px';
+  };
+
+  InteractiveGrid.prototype._renderLabels = function () {
+    var o = this.options;
+    var xHTML = '', yHTML = '';
+    for (var x = 0; x < o.columns; x++) xHTML += '<div>' + (o.xStart + x) + '</div>';
+    for (var y = o.rows - 1; y >= 0; y--) yHTML += '<div>' + (o.yStart + y) + '</div>';
+    this.dom.xLabels.innerHTML = xHTML;
+    this.dom.yLabels.innerHTML = yHTML;
+    this.dom.timeLabel.innerHTML = this._escape(o.xAxisTitle) + '<br>' + this._escape(o.xAxisSubtitle);
+  };
+
+  InteractiveGrid.prototype._escape = function (s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  };
+
+  InteractiveGrid.prototype._bind = function (el, event, fn, opts) {
+    el.addEventListener(event, fn, opts);
+    this._bound.push([el, event, fn, opts]);
+  };
+
+  InteractiveGrid.prototype._bindEvents = function () {
+    var self = this;
+    var d = this.dom;
+
+    this._bind(d.interaction, 'mousemove', function (e) { self._setHover(self._nearest(e)); });
+    this._bind(d.interaction, 'mouseleave', function () { self._setHover(null); });
+    this._bind(d.interaction, 'click', function (e) {
+      var cell = self._nearest(e);
+      self._setHover(cell);
+      self._showMenu(cell);
+    });
+
+    this._bind(d.interaction, 'touchstart', function (e) {
+      if (!e.touches || !e.touches[0]) return;
+      var cell = self._nearest(e.touches[0]);
+      self._showMenu(cell);
+      e.preventDefault();
+    }, { passive: false });
+
+    this._bind(d.menu, 'click', function (e) {
+      var add = e.target.closest('[data-type]');
+      if (add && self.pendingCell) {
+        self.addPoint(self.pendingCell.x, self.pendingCell.y, add.getAttribute('data-type'));
+        self._hideMenu();
+        return;
+      }
+      var del = e.target.closest('[data-delete-type]');
+      if (del && self.pendingCell) {
+        var type = del.getAttribute('data-delete-type');
+        self.removePoint(self.pendingCell.x, self.pendingCell.y, type === 'all' ? undefined : type);
+        self._hideMenu();
+      }
+    });
+
+    this._bind(d.undo, 'click', function () { self.undo(); });
+    this._bind(d.clear, 'click', function () { self.clear(); });
+
+    this._bind(document, 'mousedown', function (e) {
+      if (!self.el.contains(e.target)) self._hideMenu();
+    });
+    this._bind(window, 'resize', function () { self.render(); });
+  };
+
+  InteractiveGrid.prototype._internalXY = function (x, y) {
+    return { x: x - this.options.xStart, y: y - this.options.yStart };
+  };
+
+  InteractiveGrid.prototype._publicXY = function (x, y) {
+    return { x: x + this.options.xStart, y: y + this.options.yStart };
+  };
+
+  InteractiveGrid.prototype._validCoord = function (x, y) {
+    var i = this._internalXY(x, y);
+    return Number.isInteger(x) && Number.isInteger(y) && i.x >= 0 && i.x < this.options.columns && i.y >= 0 && i.y < this.options.rows;
+  };
+
+  InteractiveGrid.prototype._coords = function (internalX, internalY) {
+    return {
+      px: internalX * this.options.cellWidth,
+      py: (this.options.rows - 1 - internalY) * this.options.cellHeight
+    };
+  };
+
+  InteractiveGrid.prototype._nearest = function (evt) {
+    var r = this.dom.interaction.getBoundingClientRect();
+    var lx = Math.max(0, Math.min(r.width, evt.clientX - r.left));
+    var ly = Math.max(0, Math.min(r.height, evt.clientY - r.top));
+    var ix = Math.max(0, Math.min(this.options.columns - 1, Math.round(lx / this.options.cellWidth)));
+    var screenRow = Math.max(0, Math.min(this.options.rows - 1, Math.round(ly / this.options.cellHeight)));
+    var iy = this.options.rows - 1 - screenRow;
+    return this._publicXY(ix, iy);
+  };
+
+  InteractiveGrid.prototype._setHover = function (cell) {
+    if (!cell) { this.dom.hoverPlus.style.opacity = '0'; return; }
+    var i = this._internalXY(cell.x, cell.y);
+    var p = this._coords(i.x, i.y);
+    this.dom.hoverPlus.style.left = (48 + p.px) + 'px';
+    this.dom.hoverPlus.style.top = p.py + 'px';
+    this.dom.hoverPlus.style.opacity = '1';
+  };
+
+  InteractiveGrid.prototype._showMenu = function (cell) {
+    this.pendingCell = { x: cell.x, y: cell.y };
+    var point = this._find(cell.x, cell.y);
+    var hasDot = !!(point && point.types.indexOf('dot') >= 0);
+    var hasX = !!(point && point.types.indexOf('x') >= 0);
+
+    this.dom.menu.querySelector('[data-type="dot"]').disabled = hasDot;
+    this.dom.menu.querySelector('[data-type="x"]').disabled = hasX;
+    this.dom.deleteSection.style.display = point ? 'flex' : 'none';
+    this.dom.menu.querySelector('[data-delete-type="dot"]').disabled = !hasDot;
+    this.dom.menu.querySelector('[data-delete-type="x"]').disabled = !hasX;
+    this.dom.menu.classList.add('ig-show');
+
+    var self = this;
+    requestAnimationFrame(function () {
+      var i = self._internalXY(cell.x, cell.y);
+      var p = self._coords(i.x, i.y);
+      var x = 48 + p.px + 16;
+      var y = p.py - 58;
+      var mw = self.dom.menu.offsetWidth || 200;
+      var mh = self.dom.menu.offsetHeight || 130;
+      x = Math.max(4, Math.min(x, self.dom.chart.clientWidth - mw - 4));
+      y = Math.max(4, Math.min(y, self.dom.chart.clientHeight - mh - 4));
+      self.dom.menu.style.left = x + 'px';
+      self.dom.menu.style.top = y + 'px';
+    });
+
+    if (typeof this.options.onSelect === 'function') this.options.onSelect({ x: cell.x, y: cell.y, point: point ? {x:point.x,y:point.y,types:point.types.slice()} : null });
+  };
+
+  InteractiveGrid.prototype._hideMenu = function () {
+    this.dom.menu.classList.remove('ig-show');
+    this.pendingCell = null;
+  };
+
+  InteractiveGrid.prototype._find = function (x, y) {
+    for (var i = 0; i < this.points.length; i++) {
+      if (this.points[i].x === x && this.points[i].y === y) return this.points[i];
+    }
+    return null;
+  };
+
+  InteractiveGrid.prototype._pushHistory = function () {
+    this.history.push(clonePoints(this.points));
+    if (this.history.length > 100) this.history.shift();
+  };
+
+  InteractiveGrid.prototype._emitChange = function (reason) {
+    var detail = { reason: reason, data: this.getData() };
+    this.el.dispatchEvent(new CustomEvent('interactivegrid:change', { detail: detail }));
+    if (typeof this.options.onChange === 'function') this.options.onChange(detail.data, reason);
+  };
+
+  InteractiveGrid.prototype._svg = function (name, attrs) {
+    var el = document.createElementNS('http://www.w3.org/2000/svg', name);
+    Object.keys(attrs).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+    this.dom.overlay.appendChild(el);
+    return el;
+  };
+
+  InteractiveGrid.prototype.render = function () {
+    if (this.destroyed) return this;
+    var ov = this.dom.overlay;
+    while (ov.firstChild) ov.removeChild(ov.firstChild);
+
+    for (var i = 1; i < this.points.length; i++) {
+      var a = this._internalXY(this.points[i - 1].x, this.points[i - 1].y);
+      var b = this._internalXY(this.points[i].x, this.points[i].y);
+      var p1 = this._coords(a.x, a.y), p2 = this._coords(b.x, b.y);
+      this._svg('line', { x1:p1.px, y1:p1.py, x2:p2.px, y2:p2.py, stroke:this.options.lineColor, 'stroke-width':this.options.lineWidth, 'stroke-linecap':'round' });
+    }
+
+    for (var j = 0; j < this.points.length; j++) {
+      var pt = this.points[j];
+      var ii = this._internalXY(pt.x, pt.y);
+      var p = this._coords(ii.x, ii.y);
+      if (pt.types.indexOf('dot') >= 0) this._svg('circle', { cx:p.px, cy:p.py, r:this.options.markSize, fill:this.options.markColor });
+      if (pt.types.indexOf('x') >= 0) {
+        var s = this.options.xMarkSize;
+        var sw = this.options.markStrokeWidth;
+        this._svg('line', { x1:p.px-s, y1:p.py-s, x2:p.px+s, y2:p.py+s, stroke:this.options.markColor, 'stroke-width':sw, 'stroke-linecap':'round' });
+        this._svg('line', { x1:p.px+s, y1:p.py-s, x2:p.px-s, y2:p.py+s, stroke:this.options.markColor, 'stroke-width':sw, 'stroke-linecap':'round' });
+      }
+    }
+
+    var total = this.points.reduce(function (n, p) { return n + p.types.length; }, 0);
+    this.dom.status.textContent = this.points.length ? (total + ' tanda pada ' + this.points.length + ' koordinat.') : 'Belum ada tanda.';
+    return this;
+  };
+
+  InteractiveGrid.prototype.addPoint = function (x, y, type) {
+    x = Number(x); y = Number(y);
+    if (!this._validCoord(x, y)) throw new Error('InteractiveGrid.addPoint: koordinat di luar area grid.');
+    if (!isValidType(type)) throw new Error('InteractiveGrid.addPoint: type harus "dot" atau "x".');
+    var point = this._find(x, y);
+    if (point && point.types.indexOf(type) >= 0) return this;
+    this._pushHistory();
+    if (!point) { point = { x:x, y:y, types:[] }; this.points.push(point); }
+    point.types.push(type);
+    this.render();
+    this._emitChange('add');
+    return this;
+  };
+
+  InteractiveGrid.prototype.removePoint = function (x, y, type) {
+    x = Number(x); y = Number(y);
+    var idx = -1;
+    for (var i = 0; i < this.points.length; i++) if (this.points[i].x === x && this.points[i].y === y) { idx = i; break; }
+    if (idx < 0) return this;
+    if (type !== undefined && !isValidType(type)) throw new Error('InteractiveGrid.removePoint: type harus "dot", "x", atau dikosongkan.');
+    if (type && this.points[idx].types.indexOf(type) < 0) return this;
+    this._pushHistory();
+    if (!type) this.points.splice(idx, 1);
+    else {
+      this.points[idx].types = this.points[idx].types.filter(function (t) { return t !== type; });
+      if (!this.points[idx].types.length) this.points.splice(idx, 1);
+    }
+    this.render(); // otomatis menyambung koordinat sebelum & sesudah yang dihapus
+    this._emitChange('remove');
+    return this;
+  };
+
+  InteractiveGrid.prototype.getData = function () { return clonePoints(this.points); };
+
+  InteractiveGrid.prototype.setData = function (data, options) {
+    options = options || {};
+    if (!Array.isArray(data)) throw new Error('InteractiveGrid.setData: data harus berupa array.');
+    var normalized = [];
+    for (var i = 0; i < data.length; i++) {
+      var p = data[i] || {};
+      var x = Number(p.x), y = Number(p.y);
+      if (!this._validCoord(x, y)) continue;
+      var types = Array.isArray(p.types) ? p.types.filter(isValidType) : (isValidType(p.type) ? [p.type] : []);
+      types = types.filter(function (v, idx, arr) { return arr.indexOf(v) === idx; });
+      if (!types.length) continue;
+      var existing = null;
+      for (var j = 0; j < normalized.length; j++) if (normalized[j].x === x && normalized[j].y === y) { existing = normalized[j]; break; }
+      if (!existing) normalized.push({ x:x, y:y, types:types.slice() });
+      else types.forEach(function (t) { if (existing.types.indexOf(t) < 0) existing.types.push(t); });
+    }
+    if (!options.silent) this._pushHistory();
+    this.points = normalized;
+    this.render();
+    if (!options.silent) this._emitChange('setData');
+    return this;
+  };
+
+  InteractiveGrid.prototype.clear = function () {
+    if (!this.points.length) return this;
+    this._pushHistory();
+    this.points = [];
+    this.render();
+    this._emitChange('clear');
+    return this;
+  };
+
+  InteractiveGrid.prototype.undo = function () {
+    if (!this.history.length) return this;
+    this.points = this.history.pop();
+    this.render();
+    this._emitChange('undo');
+    return this;
+  };
+
+  InteractiveGrid.prototype.getPoint = function (x, y) {
+    var p = this._find(Number(x), Number(y));
+    return p ? { x:p.x, y:p.y, types:p.types.slice() } : null;
+  };
+
+  InteractiveGrid.prototype.hasPoint = function (x, y, type) {
+    var p = this._find(Number(x), Number(y));
+    if (!p) return false;
+    return type ? p.types.indexOf(type) >= 0 : true;
+  };
+
+  InteractiveGrid.prototype.toJSON = function () { return JSON.stringify(this.getData()); };
+
+  InteractiveGrid.prototype.fromJSON = function (json, options) {
+    return this.setData(typeof json === 'string' ? JSON.parse(json) : json, options);
+  };
+
+  InteractiveGrid.prototype.destroy = function () {
+    this._bound.forEach(function (b) { b[0].removeEventListener(b[1], b[2], b[3]); });
+    this._bound = [];
+    this.el.innerHTML = '';
+    this.el.classList.remove('ig-root');
+    this.destroyed = true;
+  };
+
+  InteractiveGrid.VERSION = '1.0.0';
+  return InteractiveGrid;
+});
