@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.8.0**
+**Versi: 1.9.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -17,6 +17,7 @@ Fitur utama:
 - Mendukung satu atau lebih **teks vertikal di sebelah kiri sumbu Y**, dengan pengaturan teks, warna, ukuran font, font weight, font family, dan lebar area.
 - Lebar kolom dapat diatur secara global dengan `colWidth`, lalu dioverride per kolom melalui `columnsConfig` / `colWidths` / `columnWidths`.
 - Tinggi baris dapat diatur secara global dengan `rowHeight`, lalu dioverride per baris melalui `rowsConfig` / `rowHeights`.
+- Tabel **Waktu (Jam)** dapat ditampilkan/disembunyikan dengan `showTimeTable`; cell tabel waktu otomatis digabung mengikuti `xLabelStep`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
@@ -752,6 +753,19 @@ localStorage.setItem('grafik', json);
 grid.fromJSON(localStorage.getItem('grafik'));
 ```
 
+### API tabel waktu
+
+```javascript
+grid.setShowTimeTable(true);
+grid.setShowTimeTable(false);
+
+grid.getShowTimeTable();
+grid.getTimeTableGroups();
+```
+
+`getTimeTableGroups()` berguna jika aplikasi perlu mengetahui cell tabel waktu mana yang mewakili rentang kolom tertentu.
+
+
 ### API tinggi baris
 
 API utama sekarang menggunakan nama `rowHeight`.
@@ -907,6 +921,8 @@ const grid = new InteractiveGrid('#grafik', {
 
   xAxisTitle: 'Waktu',
   xAxisSubtitle: '(Jam)',
+
+  showTimeTable: true,
 
   showToolbar: true,
   showStatus: true,
@@ -1348,6 +1364,159 @@ grid.clearVerticalTexts();
 ```
 
 Perubahan jumlah teks atau `width` akan otomatis menghitung ulang ruang di sebelah kiri grafik, sehingga label Y, grid, overlay, titik, garis, dan area klik tetap sejajar.
+
+
+### Tabel Waktu di bawah grafik: `showTimeTable`
+
+Gunakan `showTimeTable` untuk mengatur apakah tabel **Waktu (Jam)** di bawah tabel utama ditampilkan.
+
+Default:
+
+```javascript
+showTimeTable: true
+```
+
+Contoh:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+
+  xLabelStep: 2,
+  showTimeTable: true,
+
+  xAxisTitle: 'Waktu',
+  xAxisSubtitle: '(Jam)'
+});
+```
+
+Saat `showTimeTable: true`, tabel waktu ditempatkan langsung di bawah baris label sumbu X sehingga secara visual menyatu dengan tabel utama.
+
+Jika:
+
+```javascript
+showTimeTable: false
+```
+
+maka bagian tabel **Waktu (Jam)** tidak dirender/ditampilkan. Grafik utama dan label sumbu X tetap ada.
+
+#### Jumlah cell tabel waktu mengikuti `xLabelStep`
+
+Tabel waktu menggunakan jumlah kolom utama sebagai dasar.
+
+Jika:
+
+```javascript
+columns: 17,
+xLabelStep: 1
+```
+
+maka ada 16 interval/kolom utama (`X=0..16`) dan tabel waktu mempunyai 16 cell.
+
+Jika:
+
+```javascript
+columns: 17,
+xLabelStep: 2
+```
+
+maka setiap **2 kolom utama digabung menjadi 1 cell tabel waktu**, sehingga tabel waktu mempunyai 8 cell:
+
+```text
+kolom utama : |1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|
+tabel waktu : |---1---|---2---|---3---|---4---|---5---|---6---|---7---|---8---|
+```
+
+Jika jumlah interval tidak habis dibagi `xLabelStep`, cell terakhir berisi sisa kolom.
+
+Contoh:
+
+```javascript
+columns: 10,     // 9 interval
+xLabelStep: 2
+```
+
+menghasilkan grup:
+
+```text
+2 + 2 + 2 + 2 + 1 kolom
+```
+
+#### Tetap kompatibel dengan `colWidth`
+
+Jika masing-masing kolom mempunyai lebar berbeda, lebar cell tabel waktu adalah **jumlah lebar kolom utama yang digabung**.
+
+Contoh:
+
+```javascript
+colWidth: 50,
+
+columnsConfig: {
+  2: { colWidth: 80 },
+  3: { colWidth: 70 }
+},
+
+xLabelStep: 2
+```
+
+cell tabel waktu pertama menggabungkan kolom 1 dan 2:
+
+```text
+50 + 80 = 130px
+```
+
+cell berikutnya menggabungkan kolom 3 dan 4:
+
+```text
+70 + 50 = 120px
+```
+
+Jadi garis tabel waktu selalu tepat sejajar dengan batas grup pada tabel utama.
+
+#### API
+
+Tampilkan/sembunyikan tabel waktu setelah grid dibuat:
+
+```javascript
+grid.setShowTimeTable(true);
+grid.setShowTimeTable(false);
+```
+
+Membaca status:
+
+```javascript
+const visible = grid.getShowTimeTable();
+```
+
+Melihat pembagian/grup tabel waktu:
+
+```javascript
+const groups = grid.getTimeTableGroups();
+```
+
+Contoh hasil untuk `columns: 17` dan `xLabelStep: 2`:
+
+```javascript
+[
+  {
+    startColumn: 1,
+    endColumn: 2,
+    fromX: 0,
+    toX: 2,
+    width: 108
+  },
+  // ...
+]
+```
+
+Mengubah `xLabelStep` melalui:
+
+```javascript
+grid.setXLabelStep(2);
+```
+
+akan langsung mengubah batas merge cell tabel waktu.
 
 
 ### Mengatur lebar kolom: `colWidth`
@@ -1887,7 +2056,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.8.0
+console.log(InteractiveGrid.VERSION); // 1.9.0
 ```
 
 ## Lisensi
@@ -1919,6 +2088,18 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v1.9.0
+- Menambahkan properti `showTimeTable` dengan default `true`.
+- Jika `showTimeTable: false`, tabel **Waktu (Jam)** di bawah grafik disembunyikan dan tinggi layout menyesuaikan otomatis.
+- Baris label X dan tabel waktu sekarang dibuat menyatu secara visual dengan tabel utama.
+- Cell tabel waktu otomatis digabung berdasarkan `xLabelStep`.
+- `xLabelStep: 1` menghasilkan satu cell tabel waktu untuk setiap kolom utama; `xLabelStep: 2` menggabungkan dua kolom utama per cell; dan seterusnya.
+- Merge tabel waktu mendukung `colWidth` dan lebar khusus per kolom, karena batas cell dihitung dari posisi X kumulatif.
+- Menambahkan API `setShowTimeTable()`, `getShowTimeTable()`, dan `getTimeTableGroups()`.
+- `getAllData()` / `toFullJSON()` sekarang menyertakan `viewConfig.showTimeTable`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v1.8.0
 - Mengganti nama properti utama `rowWidth` menjadi `rowHeight` agar lebih tepat secara semantik.
