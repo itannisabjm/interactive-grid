@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.0.1**
+**Versi: 2.1.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -14,11 +14,14 @@ Fitur utama:
 - API untuk tambah/hapus/get/set/clear/undo/JSON.
 - Keterangan jumlah tanda/koordinat tampil sejajar di sebelah kanan tombol **Hapus Semua** dan dapat diatur dengan `showStatus`.
 - Penanda biasa/interaktif dapat diatur **warna umum (`markColor`), warna khusus dot (`dotColor`), warna khusus X (`xColor`), ukuran dot, ukuran X, dan ketebalan X**, secara global maupun per tanda.
-- Label angka sumbu X dan Y dapat diatur frekuensinya dengan `xLabelStep` dan `yLabelStep` tanpa mengubah jumlah kolom/baris atau koordinat data.
+- Label angka sumbu X dan Y dapat diatur frekuensinya dengan `colJoinCount`
+
+> `colJoinCount` adalah nama baru dari `xLabelStep`. Fungsi dan perilakunya sama persis. Nama lama tetap diterima sebagai alias kompatibilitas.
+ dan `yLabelStep` tanpa mengubah jumlah kolom/baris atau koordinat data.
 - Mendukung satu atau lebih **teks vertikal di sebelah kiri sumbu Y**, dengan pengaturan teks, warna, ukuran font, font weight, font family, dan lebar area.
 - Lebar kolom dapat diatur secara global dengan `colWidth`, lalu dioverride per kolom melalui `columnsConfig` / `colWidths` / `columnWidths`.
 - Tinggi baris dapat diatur secara global dengan `rowHeight`, lalu dioverride per baris melalui `rowsConfig` / `rowHeights`.
-- Tabel **Waktu (Jam)** dapat ditampilkan/disembunyikan dengan `showTimeTable`; cell tabel waktu otomatis digabung mengikuti `xLabelStep`.
+- Tabel **Waktu (Jam)** dapat ditampilkan/disembunyikan dengan `showTimeTable`; cell tabel waktu otomatis digabung mengikuti `colJoinCount`.
 - Setiap cell tabel waktu dapat diisi jam. `showTimePicker: true` memakai time picker browser + input manual, sedangkan `false` memakai input teks manual berformat `HH:MM`.
 - Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
@@ -853,7 +856,7 @@ Data dapat diberikan saat membuat grid:
 ```javascript
 const grid = new InteractiveGrid('#grafik', {
   columns: 17,
-  xLabelStep: 2,
+  colJoinCount: 2,
   showTimeTable: true,
   showTimePicker: true,
 
@@ -882,7 +885,7 @@ timeData: {
 }
 ```
 
-Untuk `xLabelStep: 2`, start column cell adalah `1, 3, 5, ...`.
+Untuk `colJoinCount: 2`, start column cell adalah `1, 3, 5, ...`.
 
 #### API data waktu
 
@@ -1110,18 +1113,18 @@ grid.clearVerticalTexts();
 `addVerticalText()` mengembalikan `id` teks yang dibuat. Setiap perubahan layout akan langsung dirender ulang.
 
 
-### `setXLabelStep(step)` / `getXLabelStep()`
+### `setColJoinCount(step)` / `getColJoinCount()`
 
 Mengubah frekuensi angka sumbu X tanpa membuat ulang instance:
 
 ```javascript
-grid.setXLabelStep(2);
+grid.setColJoinCount(2);
 ```
 
 Membaca nilai saat ini:
 
 ```javascript
-const step = grid.getXLabelStep();
+const step = grid.getColJoinCount();
 ```
 
 Nilai harus lebih besar dari `0`. Nilai desimal dibulatkan ke bawah, dengan minimum `1`.
@@ -1166,7 +1169,7 @@ const grid = new InteractiveGrid('#grafik', {
   columns: 17,
   rows: 11,
   xStart: 0,
-  xLabelStep: 1, // tampilkan angka X setiap 1 kolom; alias: step
+  colJoinCount: 1, // tampilkan angka X setiap 1 kolom; alias: step
   xLabelOffset: -6, // geser label X 6px ke kiri
   yStart: 0,
   yLabelStep: 1, // tampilkan angka Y setiap 1 baris
@@ -1286,9 +1289,9 @@ const grid = new InteractiveGrid('#grafik', {
 
 Jika `xColor` dihapus, `null`, atau string kosong, warna X otomatis memakai `markColor`. Hal yang sama berlaku untuk `dotColor`.
 
-### Mengatur interval angka sumbu X: `xLabelStep`
+### Mengatur interval angka sumbu X: `colJoinCount`
 
-`xLabelStep` menentukan **setiap berapa kolom angka pada sumbu X ditampilkan**.
+`colJoinCount` menentukan **setiap berapa kolom angka pada sumbu X ditampilkan**.
 
 Default:
 
@@ -1297,11 +1300,11 @@ const grid = new InteractiveGrid('#grafik', {
   columns: 17,
   rows: 11,
   xStart: 0,
-  xLabelStep: 1
+  colJoinCount: 1
 });
 ```
 
-Dengan `columns: 17`, koordinat X tetap `0..16`. Karena `xLabelStep: 1`, semua angka tampil:
+Dengan `columns: 17`, koordinat X tetap `0..16`. Karena `colJoinCount: 1`, semua angka tampil:
 
 ```text
 0  1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16
@@ -1314,7 +1317,7 @@ const grid = new InteractiveGrid('#grafik', {
   columns: 17,
   rows: 11,
   xStart: 0,
-  xLabelStep: 2
+  colJoinCount: 2
 });
 ```
 
@@ -1336,12 +1339,12 @@ const grid = new InteractiveGrid('#grafik', {
 });
 ```
 
-`xLabelStep` adalah nama yang direkomendasikan. Jika `xLabelStep` dan `step` diberikan bersamaan, `xLabelStep` memiliki prioritas.
+`colJoinCount` adalah nama yang direkomendasikan. Jika `colJoinCount` dan `step` diberikan bersamaan, `colJoinCount` memiliki prioritas.
 
 Contoh:
 
 ```javascript
-xLabelStep: 3
+colJoinCount: 3
 ```
 
 menampilkan:
@@ -1355,7 +1358,7 @@ Jika `xStart` bukan `0`, step dihitung berdasarkan urutan kolom dari titik awal.
 ```javascript
 xStart: 1,
 columns: 10,
-xLabelStep: 2
+colJoinCount: 2
 ```
 
 menampilkan:
@@ -1364,19 +1367,19 @@ menampilkan:
 1     3     5     7     9
 ```
 
-> `xLabelStep` hanya mengubah tampilan label angka. Jumlah kolom, posisi grid, koordinat klik, data, garis interaktif, dan permanent line tidak berubah.
+> `colJoinCount` hanya mengubah tampilan label angka. Jumlah kolom, posisi grid, koordinat klik, data, garis interaktif, dan permanent line tidak berubah.
 
 Nilainya juga dapat diubah setelah instance dibuat:
 
 ```javascript
-grid.setXLabelStep(2);
-console.log(grid.getXLabelStep()); // 2
+grid.setColJoinCount(2);
+console.log(grid.getColJoinCount()); // 2
 ```
 
 
 ### Mengatur interval angka sumbu Y: `yLabelStep`
 
-`yLabelStep` mempunyai fungsi yang sama seperti `xLabelStep`, tetapi berlaku pada **label angka sumbu Y**.
+`yLabelStep` mempunyai fungsi yang sama seperti `colJoinCount`, tetapi berlaku pada **label angka sumbu Y**.
 
 Default:
 
@@ -1471,7 +1474,7 @@ grid.setYLabelStep(2);
 console.log(grid.getYLabelStep()); // 2
 ```
 
-### Menggunakan `xLabelStep` dan `yLabelStep` bersamaan
+### Menggunakan `colJoinCount` dan `yLabelStep` bersamaan
 
 Keduanya dapat digunakan sekaligus:
 
@@ -1483,7 +1486,7 @@ const grid = new InteractiveGrid('#grafik', {
   xStart: 0,
   yStart: 0,
 
-  xLabelStep: 2,
+  colJoinCount: 2,
   yLabelStep: 2
 });
 ```
@@ -1664,7 +1667,7 @@ const grid = new InteractiveGrid('#grafik', {
   columns: 17,
   rows: 11,
 
-  xLabelStep: 2,
+  colJoinCount: 2,
   xLabelOffset: -6
 });
 ```
@@ -1707,7 +1710,7 @@ const grid = new InteractiveGrid('#grafik', {
   columns: 17,
   rows: 11,
 
-  xLabelStep: 2,
+  colJoinCount: 2,
   showTimeTable: true,
 
   xAxisTitle: 'Waktu',
@@ -1725,7 +1728,7 @@ showTimeTable: false
 
 maka bagian tabel **Waktu (Jam)** tidak dirender/ditampilkan. Grafik utama dan label sumbu X tetap ada.
 
-#### Jumlah cell tabel waktu mengikuti `xLabelStep`
+#### Jumlah cell tabel waktu mengikuti `colJoinCount`
 
 Tabel waktu menggunakan jumlah kolom utama sebagai dasar.
 
@@ -1733,7 +1736,7 @@ Jika:
 
 ```javascript
 columns: 17,
-xLabelStep: 1
+colJoinCount: 1
 ```
 
 maka ada 16 interval/kolom utama (`X=0..16`) dan tabel waktu mempunyai 16 cell.
@@ -1742,7 +1745,7 @@ Jika:
 
 ```javascript
 columns: 17,
-xLabelStep: 2
+colJoinCount: 2
 ```
 
 maka setiap **2 kolom utama digabung menjadi 1 cell tabel waktu**, sehingga tabel waktu mempunyai 8 cell:
@@ -1752,13 +1755,13 @@ kolom utama : |1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|
 tabel waktu : |---1---|---2---|---3---|---4---|---5---|---6---|---7---|---8---|
 ```
 
-Jika jumlah interval tidak habis dibagi `xLabelStep`, cell terakhir berisi sisa kolom.
+Jika jumlah interval tidak habis dibagi `colJoinCount`, cell terakhir berisi sisa kolom.
 
 Contoh:
 
 ```javascript
 columns: 10,     // 9 interval
-xLabelStep: 2
+colJoinCount: 2
 ```
 
 menghasilkan grup:
@@ -1781,7 +1784,7 @@ columnsConfig: {
   3: { colWidth: 70 }
 },
 
-xLabelStep: 2
+colJoinCount: 2
 ```
 
 cell tabel waktu pertama menggabungkan kolom 1 dan 2:
@@ -1819,7 +1822,7 @@ Melihat pembagian/grup tabel waktu:
 const groups = grid.getTimeTableGroups();
 ```
 
-Contoh hasil untuk `columns: 17` dan `xLabelStep: 2`:
+Contoh hasil untuk `columns: 17` dan `colJoinCount: 2`:
 
 ```javascript
 [
@@ -1834,10 +1837,10 @@ Contoh hasil untuk `columns: 17` dan `xLabelStep: 2`:
 ]
 ```
 
-Mengubah `xLabelStep` melalui:
+Mengubah `colJoinCount` melalui:
 
 ```javascript
-grid.setXLabelStep(2);
+grid.setColJoinCount(2);
 ```
 
 akan langsung mengubah batas merge cell tabel waktu.
@@ -2215,7 +2218,7 @@ Semua bagian plugin ikut menyesuaikan otomatis:
 - posisi teks permanent line;
 - vertical text di sisi kiri tetap berada pada area grafik yang benar.
 
-`xLabelStep`, `yLabelStep`, dan pengaturan lebar kolom tetap bekerja bersama pengaturan ini.
+`colJoinCount`, `yLabelStep`, dan pengaturan lebar kolom tetap bekerja bersama pengaturan ini.
 
 #### API tinggi baris
 
@@ -2380,7 +2383,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.0.1
+console.log(InteractiveGrid.VERSION); // 2.1.0
 ```
 
 ## Lisensi
@@ -2413,6 +2416,16 @@ Perilaku:
 
 ## Changelog
 
+### v2.1.0
+- Mengganti nama properti utama `xLabelStep` menjadi `colJoinCount`.
+- Fungsi `colJoinCount` sama persis dengan `xLabelStep` sebelumnya: mengatur interval label sumbu X dan jumlah kolom utama yang digabung pada tabel Waktu.
+- Default tetap `colJoinCount: 1`.
+- Menambahkan API utama `setColJoinCount(count)` dan `getColJoinCount()`.
+- `xLabelStep`, `setXLabelStep()`, dan `getXLabelStep()` tetap didukung sebagai alias kompatibilitas agar implementasi lama tidak rusak.
+- `step` lama juga tetap diterima sebagai alias.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
+
 ### v2.0.1
 - Pada `showTimePicker: false`, tanda `:` otomatis ditambahkan setelah dua digit pertama.
 - Mengetik `08` langsung menjadi `08:`; melanjutkan `30` menghasilkan `08:30`.
@@ -2431,7 +2444,7 @@ Perilaku:
 - Menambahkan `timeData` untuk data awal.
 - Menambahkan API `getTimeData()`, `setTimeData()`, `clearTimeData()`, `getTimeValue()`, `setTimeValue()`, `getShowTimePicker()`, dan `setShowTimePicker()`.
 - Menambahkan callback `onTimeChange` dan event DOM `interactivegrid:timechange`.
-- Input waktu mengikuti merge cell berdasarkan `xLabelStep` dan tetap mendukung `colWidth` yang berbeda per kolom.
+- Input waktu mengikuti merge cell berdasarkan `colJoinCount` dan tetap mendukung `colWidth` yang berbeda per kolom.
 - `getAllData()` / `toFullJSON()` sekarang menyertakan `timeData` dan `viewConfig.showTimePicker`.
 - Semua fitur versi sebelumnya tetap kompatibel.
 
@@ -2457,8 +2470,8 @@ Perilaku:
 - Menambahkan properti `showTimeTable` dengan default `true`.
 - Jika `showTimeTable: false`, tabel **Waktu (Jam)** di bawah grafik disembunyikan dan tinggi layout menyesuaikan otomatis.
 - Baris label X dan tabel waktu sekarang dibuat menyatu secara visual dengan tabel utama.
-- Cell tabel waktu otomatis digabung berdasarkan `xLabelStep`.
-- `xLabelStep: 1` menghasilkan satu cell tabel waktu untuk setiap kolom utama; `xLabelStep: 2` menggabungkan dua kolom utama per cell; dan seterusnya.
+- Cell tabel waktu otomatis digabung berdasarkan `colJoinCount`.
+- `colJoinCount: 1` menghasilkan satu cell tabel waktu untuk setiap kolom utama; `colJoinCount: 2` menggabungkan dua kolom utama per cell; dan seterusnya.
 - Merge tabel waktu mendukung `colWidth` dan lebar khusus per kolom, karena batas cell dihitung dari posisi X kumulatif.
 - Menambahkan API `setShowTimeTable()`, `getShowTimeTable()`, dan `getTimeTableGroups()`.
 - `getAllData()` / `toFullJSON()` sekarang menyertakan `viewConfig.showTimeTable`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
@@ -2507,7 +2520,7 @@ Perilaku:
 - Layout kiri grafik dihitung ulang secara otomatis saat jumlah atau lebar vertical text berubah.
 - Menambahkan API `addVerticalText()`, `updateVerticalText()`, `removeVerticalText()`, `setVerticalTexts()`, `getVerticalTexts()`, dan `clearVerticalTexts()`.
 - `getAllData()` / `toFullJSON()` sekarang juga menyertakan `verticalTexts`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
-- Semua fitur lama (`xLabelStep`, `yLabelStep`, permanent line, marker, undo, dan data interaktif) tetap kompatibel.
+- Semua fitur lama (`colJoinCount`, `yLabelStep`, permanent line, marker, undo, dan data interaktif) tetap kompatibel.
 
 
 ### v1.4.0
@@ -2515,15 +2528,15 @@ Perilaku:
 - Default `yLabelStep: 1`, sehingga perilaku versi sebelumnya tetap sama.
 - `yLabelStep` hanya memengaruhi label angka sumbu Y; jumlah baris, koordinat, marker, garis interaktif, dan permanent line tetap sama.
 - Menambahkan API `setYLabelStep(step)` dan `getYLabelStep()`.
-- `xLabelStep` dan `yLabelStep` dapat digunakan secara bersamaan.
+- `colJoinCount` dan `yLabelStep` dapat digunakan secara bersamaan.
 
 
 ### v1.3.0
-- Menambahkan `xLabelStep` untuk mengatur setiap berapa kolom angka sumbu X ditampilkan.
-- Menambahkan `step` sebagai alias dari `xLabelStep`.
-- Default tetap `xLabelStep: 1`, sehingga perilaku lama tidak berubah.
+- Menambahkan `colJoinCount` untuk mengatur setiap berapa kolom angka sumbu X ditampilkan.
+- Menambahkan `step` sebagai alias dari `colJoinCount`.
+- Default tetap `colJoinCount: 1`, sehingga perilaku lama tidak berubah.
 - Pengaturan ini hanya memengaruhi label angka; grid, koordinat, data, marker, dan garis tetap sama.
-- Menambahkan API `setXLabelStep(step)` dan `getXLabelStep()`.
+- Menambahkan API `setColJoinCount(step)` dan `getColJoinCount()`.
 
 
 ### v1.2.2
