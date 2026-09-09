@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.8.0
+/* InteractiveGrid v1.9.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -67,6 +67,12 @@
 
     xAxisTitle: 'Waktu',
     xAxisSubtitle: '(Jam)',
+
+    // Tabel waktu di bawah sumbu X.
+    // Jika true, tabel waktu ditampilkan dan cell-nya mengikuti xLabelStep.
+    // Jika false, tabel waktu disembunyikan.
+    showTimeTable: true,
+
     showToolbar: true,
     showStatus: true,
     showUndo: true,
@@ -307,13 +313,19 @@
   };
 
   InteractiveGrid.prototype._renderColumnGuides = function () {
-    if (!this.dom || !this.dom.grid || !this.dom.timeCells) return;
+    if (!this.dom || !this.dom.grid || !this.dom.timeCells || !this.dom.xLabels) return;
 
-    this.dom.grid.innerHTML = '';
-    this.dom.timeCells.innerHTML = '';
+    // Hapus guide lama tanpa menghapus label angka X.
+    var oldGrid = this.dom.grid.querySelectorAll('.ig-grid-vline');
+    for (var gi = 0; gi < oldGrid.length; gi++) oldGrid[gi].remove();
 
-    // Batas paling kiri/kanan ditangani oleh border CSS.
-    // Di sini hanya gambar garis vertikal internal.
+    var oldTime = this.dom.timeCells.querySelectorAll('.ig-time-vline');
+    for (var ti = 0; ti < oldTime.length; ti++) oldTime[ti].remove();
+
+    var oldAxis = this.dom.xLabels.querySelectorAll('.ig-x-axis-vline');
+    for (var ai = 0; ai < oldAxis.length; ai++) oldAxis[ai].remove();
+
+    // Grid utama: garis vertikal tetap muncul di setiap kolom.
     for (var i = 1; i < this.options.columns - 1; i++) {
       var x = this._xPositions[i];
 
@@ -321,10 +333,26 @@
       gridLine.className = 'ig-grid-vline';
       gridLine.style.left = x + 'px';
       this.dom.grid.appendChild(gridLine);
+    }
+
+    // Tabel waktu + baris label X: merge berdasarkan xLabelStep.
+    // xLabelStep=1 -> setiap kolom terpisah.
+    // xLabelStep=2 -> setiap 2 kolom utama menjadi 1 cell tabel waktu.
+    var step = Number(this.options.xLabelStep);
+    if (!(step > 0)) step = 1;
+    step = Math.max(1, Math.floor(step));
+
+    for (var boundary = step; boundary < this.options.columns - 1; boundary += step) {
+      var bx = this._xPositions[boundary];
+
+      var axisLine = document.createElement('span');
+      axisLine.className = 'ig-x-axis-vline';
+      axisLine.style.left = bx + 'px';
+      this.dom.xLabels.appendChild(axisLine);
 
       var timeLine = document.createElement('span');
       timeLine.className = 'ig-time-vline';
-      timeLine.style.left = x + 'px';
+      timeLine.style.left = bx + 'px';
       this.dom.timeCells.appendChild(timeLine);
     }
   };
@@ -545,14 +573,15 @@
     var gridW = this._gridWidth;
     var gridH = this._gridHeight;
     var chartW = gridLeft + gridW + rightPad;
-    var chartH = topPad + gridH + axisH + timeH;
+    var effectiveTimeH = o.showTimeTable ? timeH : 0;
+    var chartH = topPad + gridH + axisH + effectiveTimeH;
 
     this._metrics = {
       labelW: gridLeft,
       yLabelW: yLabelW,
       verticalTextW: verticalTextW,
       gridLeft: gridLeft,
-      axisH: axisH, timeH: timeH,
+      axisH: axisH, timeH: effectiveTimeH,
       topPad: topPad, rightPad: rightPad, gridW: gridW, gridH: gridH
     };
 
@@ -589,10 +618,13 @@
     this.dom.xLabels.style.transform = 'none';
 
     this.dom.timeLabel.style.top = (topPad + gridH + axisH) + 'px';
-    this.dom.timeLabel.style.height = timeH + 'px';
+    this.dom.timeLabel.style.height = effectiveTimeH + 'px';
     this.dom.timeCells.style.top = (topPad + gridH + axisH) + 'px';
     this.dom.timeCells.style.width = gridW + 'px';
-    this.dom.timeCells.style.height = timeH + 'px';
+    this.dom.timeCells.style.height = effectiveTimeH + 'px';
+
+    this.dom.timeLabel.style.display = o.showTimeTable ? 'flex' : 'none';
+    this.dom.timeCells.style.display = o.showTimeTable ? 'block' : 'none';
 
     this._renderColumnGuides();
     this._renderRowGuides();
@@ -729,6 +761,9 @@
     this.dom.xLabels.innerHTML = xHTML;
     this.dom.yLabels.innerHTML = yHTML;
     this.dom.timeLabel.innerHTML = this._escape(o.xAxisTitle) + '<br>' + this._escape(o.xAxisSubtitle);
+
+    // innerHTML pada xLabels menghapus guide merge, jadi gambar ulang.
+    this._renderColumnGuides();
   };
 
   InteractiveGrid.prototype._escape = function (s) {
@@ -1284,7 +1319,10 @@
       permanent: this.getPermanentData(),
       verticalTexts: this.getVerticalTexts(),
       columnLayout: this.getColumnLayout(),
-      rowLayout: this.getRowLayout()
+      rowLayout: this.getRowLayout(),
+      viewConfig: {
+        showTimeTable: !!this.options.showTimeTable
+      }
     };
   };
 
@@ -1294,6 +1332,9 @@
     if (state.verticalTexts != null) this.setVerticalTexts(state.verticalTexts);
     if (state.columnLayout != null) this.setColumnLayout(state.columnLayout);
     if (state.rowLayout != null) this.setRowLayout(state.rowLayout);
+    if (state.viewConfig && state.viewConfig.showTimeTable != null) {
+      this.setShowTimeTable(state.viewConfig.showTimeTable);
+    }
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
   };
@@ -1703,6 +1744,45 @@
     return this;
   };
 
+  InteractiveGrid.prototype.setShowTimeTable = function (show) {
+    this.options.showTimeTable = !!show;
+    this._layout();
+    this._renderLabels();
+    this._renderVerticalTexts();
+    this.render();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getShowTimeTable = function () {
+    return !!this.options.showTimeTable;
+  };
+
+  InteractiveGrid.prototype.getTimeTableGroups = function () {
+    if (!this._xPositions || this._xPositions.length !== this.options.columns) {
+      this._rebuildColumnGeometry();
+    }
+
+    var step = Number(this.options.xLabelStep);
+    if (!(step > 0)) step = 1;
+    step = Math.max(1, Math.floor(step));
+
+    var groups = [];
+    var maxInterval = this.options.columns - 1;
+
+    for (var start = 0; start < maxInterval; start += step) {
+      var end = Math.min(start + step, maxInterval);
+      groups.push({
+        startColumn: start + 1,
+        endColumn: end,
+        fromX: this.options.xStart + start,
+        toX: this.options.xStart + end,
+        width: this._xPositions[end] - this._xPositions[start]
+      });
+    }
+
+    return groups;
+  };
+
   InteractiveGrid.prototype.setXLabelStep = function (step) {
     step = Number(step);
     if (!(step > 0)) throw new Error('InteractiveGrid.setXLabelStep: step harus lebih besar dari 0.');
@@ -1738,6 +1818,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.8.0';
+  InteractiveGrid.VERSION = '1.9.0';
   return InteractiveGrid;
 });
