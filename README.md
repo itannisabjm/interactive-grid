@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.6.0**
+**Versi: 1.7.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -16,6 +16,7 @@ Fitur utama:
 - Label angka sumbu X dan Y dapat diatur frekuensinya dengan `xLabelStep` dan `yLabelStep` tanpa mengubah jumlah kolom/baris atau koordinat data.
 - Mendukung satu atau lebih **teks vertikal di sebelah kiri sumbu Y**, dengan pengaturan teks, warna, ukuran font, font weight, font family, dan lebar area.
 - Lebar kolom dapat diatur secara global dengan `colWidth`, lalu dioverride per kolom melalui `columnsConfig` / `colWidths` / `columnWidths`.
+- Tinggi baris dapat diatur secara global dengan `rowWidth`, lalu dioverride per baris melalui `rowsConfig` / `rowWidths`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
@@ -58,6 +59,15 @@ Pastikan ketiga file berada dalam folder `interactive-grid`.
       columnsConfig: {
         3: { colWidth: 80 },
         7: { colWidth: 100 }
+      },
+
+      // default tinggi semua baris
+      rowWidth: 42,
+
+      // contoh override beberapa baris
+      rowsConfig: {
+        3: { rowWidth: 60 },
+        7: { rowWidth: 55 }
       },
 
       xAxisTitle: 'Waktu',
@@ -742,6 +752,33 @@ localStorage.setItem('grafik', json);
 grid.fromJSON(localStorage.getItem('grafik'));
 ```
 
+### API tinggi baris
+
+```javascript
+grid.getRowWidth();
+grid.setRowWidth(height);
+
+grid.getRowHeight(rowNumber);
+grid.getRowWidthAt(rowNumber);
+
+grid.getRowHeights();
+grid.getRowWidths();
+
+grid.setRowHeight(rowNumber, height);
+grid.setRowWidthAt(rowNumber, height);
+
+grid.resetRowHeight(rowNumber);
+grid.resetRowWidthAt(rowNumber);
+
+grid.setRowWidths(config);
+
+grid.getRowLayout();
+grid.setRowLayout(layout);
+```
+
+Nomor baris menggunakan **1-based indexing dari bawah ke atas**.
+
+
 ### API lebar kolom
 
 ```javascript
@@ -852,7 +889,14 @@ const grid = new InteractiveGrid('#grafik', {
     7: { colWidth: 100 }
   },
 
-  cellHeight: 42,
+  rowWidth: 42,
+  // cellHeight: 42, // alias kompatibilitas versi lama
+
+  // override per baris (baris dihitung mulai dari 1, dari bawah)
+  rowsConfig: {
+    3: { rowWidth: 60 },
+    7: { rowWidth: 55 }
+  },
 
   xAxisTitle: 'Waktu',
   xAxisSubtitle: '(Jam)',
@@ -1519,6 +1563,240 @@ grid.setColumnLayout(layout);
 `getAllData()` / `toFullJSON()` juga menyertakan `columnLayout`, sehingga konfigurasi lebar kolom dapat ikut disimpan apabila diperlukan.
 
 
+### Mengatur tinggi baris: `rowWidth`
+
+`rowWidth` adalah **tinggi default setiap baris/cell vertikal** pada grid. Walaupun namanya `rowWidth`, nilainya mengatur tinggi visual baris sesuai permintaan API plugin.
+
+Nilai default jika tidak diatur adalah:
+
+```javascript
+rowWidth: 42
+```
+
+Contoh:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+  rowWidth: 42
+});
+```
+
+Dengan `rows: 11`, tersedia koordinat Y `0..10`, sehingga secara visual terdapat **10 baris/cell**:
+
+```text
+baris 1  = antara Y=0 dan Y=1
+baris 2  = antara Y=1 dan Y=2
+baris 3  = antara Y=2 dan Y=3
+...
+baris 10 = antara Y=9 dan Y=10
+```
+
+Penomoran baris menggunakan **1-based indexing dari bawah ke atas**. Jadi `baris 1` adalah area paling bawah.
+
+Jika tidak ada konfigurasi khusus, semua baris memakai nilai global `rowWidth`.
+
+#### Tinggi khusus per baris
+
+Gunakan `rowsConfig`:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+
+  rowWidth: 42,
+
+  rowsConfig: {
+    2: { rowWidth: 60 },
+    5: { rowWidth: 80 },
+    9: { rowWidth: 50 }
+  }
+});
+```
+
+Artinya:
+
+```text
+baris 1  = 42px
+baris 2  = 60px   <- override
+baris 3  = 42px
+baris 4  = 42px
+baris 5  = 80px   <- override
+...
+baris 9  = 50px   <- override
+baris 10 = 42px
+```
+
+Baris yang tidak mempunyai `rowWidth` khusus otomatis mengikuti nilai global `rowWidth`.
+
+#### Format array
+
+`rowsConfig` juga dapat berupa array. Index `0` mewakili baris 1:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  rows: 6, // Y = 0..5, berarti ada 5 baris/cell
+  rowWidth: 42,
+
+  rowsConfig: [
+    { rowWidth: 50 }, // baris 1
+    null,             // baris 2 -> 42
+    { rowWidth: 70 }, // baris 3
+    null,             // baris 4 -> 42
+    { rowWidth: 55 }  // baris 5
+  ]
+});
+```
+
+#### Alias ringkas `rowWidths`
+
+Nilai angka langsung juga didukung:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  rows: 6,
+  rowWidth: 42,
+
+  rowWidths: [
+    50, // baris 1
+    42, // baris 2
+    70, // baris 3
+    42, // baris 4
+    55  // baris 5
+  ]
+});
+```
+
+Atau object 1-based:
+
+```javascript
+rowWidths: {
+  2: 60,
+  5: 80
+}
+```
+
+Jika konfigurasi lama masih memakai:
+
+```javascript
+cellHeight: 42
+```
+
+plugin tetap menerimanya sebagai alias dari `rowWidth`. Untuk kode baru disarankan menggunakan `rowWidth`.
+
+#### Dampak ke koordinat dan garis
+
+Tinggi baris yang berbeda tidak mengubah nilai koordinat. Contoh:
+
+```javascript
+rowsConfig: {
+  3: { rowWidth: 80 }
+}
+```
+
+hanya membuat jarak visual antara Y=2 dan Y=3 lebih tinggi.
+
+Semua bagian plugin ikut menyesuaikan otomatis:
+
+- garis horizontal grid;
+- label angka Y;
+- posisi marker ● dan X;
+- hover dan klik mouse/touch;
+- permanent line;
+- garis penghubung antar titik;
+- posisi teks permanent line;
+- vertical text di sisi kiri tetap berada pada area grafik yang benar.
+
+`xLabelStep`, `yLabelStep`, dan pengaturan lebar kolom tetap bekerja bersama pengaturan ini.
+
+#### API tinggi baris
+
+Mengubah tinggi default semua baris:
+
+```javascript
+grid.setRowWidth(48);
+```
+
+Membaca default:
+
+```javascript
+grid.getRowWidth();
+```
+
+Mengatur satu baris:
+
+```javascript
+grid.setRowHeight(3, 70);
+```
+
+Alias yang memakai istilah `rowWidth` juga tersedia:
+
+```javascript
+grid.setRowWidthAt(3, 70);
+```
+
+Membaca tinggi aktual satu baris:
+
+```javascript
+grid.getRowHeight(3);
+// atau
+grid.getRowWidthAt(3);
+```
+
+Mengambil seluruh tinggi aktual:
+
+```javascript
+const heights = grid.getRowHeights();
+// alias:
+const heights2 = grid.getRowWidths();
+```
+
+Mengembalikan satu baris ke default `rowWidth`:
+
+```javascript
+grid.resetRowHeight(3);
+// atau
+grid.resetRowWidthAt(3);
+```
+
+Mengganti semua override:
+
+```javascript
+grid.setRowWidths({
+  2: { rowWidth: 60 },
+  5: { rowWidth: 80 }
+});
+```
+
+Mengambil konfigurasi layout baris:
+
+```javascript
+const layout = grid.getRowLayout();
+```
+
+Contoh hasil:
+
+```javascript
+{
+  rowWidth: 42,
+  rowsConfig: {
+    2: { rowWidth: 60 },
+    5: { rowWidth: 80 }
+  }
+}
+```
+
+Memuat kembali:
+
+```javascript
+grid.setRowLayout(layout);
+```
+
+`getAllData()` / `toFullJSON()` juga menyertakan `rowLayout`, sehingga konfigurasi tinggi baris dapat ikut disimpan ke database jika diperlukan.
+
+
 ### Arti `columns` dan `rows`
 
 `columns: 17` berarti tersedia 17 titik X: `0..16`.
@@ -1608,7 +1886,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.6.0
+console.log(InteractiveGrid.VERSION); // 1.7.0
 ```
 
 ## Lisensi
@@ -1640,6 +1918,17 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v1.7.0
+- Menambahkan `rowWidth` sebagai tinggi default setiap baris/cell vertikal, dengan default `42`.
+- `cellHeight` tetap didukung sebagai alias kompatibilitas versi lama.
+- Menambahkan tinggi per baris melalui `rowsConfig` dan `rowWidths`.
+- Penomoran baris adalah 1-based dari bawah: baris 1 berada antara Y=0 dan Y=1.
+- Garis horizontal grid, label Y, koordinat mouse/touch, marker, garis biasa, permanent line, dan teks permanent line sekarang memakai posisi Y kumulatif sehingga tinggi setiap baris boleh berbeda.
+- Menambahkan API `getRowWidth()`, `setRowWidth()`, `getRowHeight()`, `getRowWidthAt()`, `getRowHeights()`, `getRowWidths()`, `setRowHeight()`, `setRowWidthAt()`, `resetRowHeight()`, `resetRowWidthAt()`, `setRowWidths()`, `getRowLayout()`, dan `setRowLayout()`.
+- `getAllData()` / `toFullJSON()` sekarang juga menyertakan `rowLayout`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v1.6.0
 - Menambahkan `colWidth` sebagai lebar default kolom.

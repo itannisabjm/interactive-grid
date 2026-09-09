@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.6.0 - framework agnostic */
+/* InteractiveGrid v1.7.0 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -53,11 +53,9 @@
   left: var(--ig-grid-left);
   top: 0;
   background-color: var(--ig-bg);
-  /* Garis horizontal tetap seragam. Garis vertikal dirender per kolom oleh JS
-     agar setiap kolom dapat memiliki lebar yang berbeda. */
-  background-image:
-    linear-gradient(to bottom, var(--ig-grid-color) 1px, transparent 1px);
-  background-size: 100% var(--ig-cell-h);
+  /* Garis vertikal dan horizontal dirender oleh JS agar lebar kolom
+     maupun tinggi baris dapat berbeda-beda. */
+  background-image: none;
   border-top: 1px solid var(--ig-grid-color);
   border-left: 1px solid var(--ig-grid-color);
   /* Pastikan garis batas koordinat terakhir (kanan dan bawah) selalu terlihat. */
@@ -75,7 +73,17 @@
   pointer-events: none;
 }
 
-.ig-grid-vline { z-index: 1; }
+.ig-grid-hline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--ig-grid-color);
+  pointer-events: none;
+}
+
+.ig-grid-vline,
+.ig-grid-hline,
 .ig-time-vline { z-index: 1; }
 
 .ig-vertical-texts {
@@ -113,11 +121,20 @@
   left: var(--ig-vertical-w);
   top: 0;
   width: var(--ig-y-label-w);
-  display: grid;
+  display: block;
   text-align: center;
   font-size: 13px;
 }
-.ig-y-labels > div { display:flex; align-items:center; justify-content:center; }
+.ig-y-labels > div {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
 
 .ig-x-labels {
   left: var(--ig-grid-left);
@@ -257,5 +274,5 @@
 .ig-hidden { display:none !important; }
 
 @media (max-width: 800px) {
-  .ig-root { --ig-cell-h: 36px; }
+  .ig-root { }
 }
