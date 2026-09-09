@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.1.0
+/* InteractiveGrid v2.2.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -20,6 +20,12 @@
     // Geser posisi label angka sumbu X secara horizontal (pixel).
     // Nilai negatif = ke kiri, positif = ke kanan.
     xLabelOffset: -6,
+
+    // Override teks label sumbu X tanpa mengubah koordinat sebenarnya.
+    // Object: { 0: 'Awal', 2: '2 Jam', 4: '4 Jam' }
+    // Array: mengikuti urutan label yang tampil berdasarkan colJoinCount.
+    xLabels: null,
+
     // Alias kompatibilitas versi lama.
     xLabelStep: null,
     step: null,
@@ -203,6 +209,9 @@
 
     this.options.xLabelOffset = Number(this.options.xLabelOffset);
     if (!Number.isFinite(this.options.xLabelOffset)) this.options.xLabelOffset = -6;
+
+    this.xLabels = {};
+    this._setXLabelsInternal(this.options.xLabels);
 
     // yLabelStep mengatur frekuensi label angka pada sumbu Y.
     this.options.yLabelStep = Number(this.options.yLabelStep);
@@ -876,6 +885,46 @@
     }
   };
 
+  InteractiveGrid.prototype._setXLabelsInternal = function (data) {
+    this.xLabels = {};
+    if (data == null) return;
+
+    var self = this;
+    var joinCount = Number(this.options.colJoinCount);
+    if (!(joinCount > 0)) joinCount = 1;
+    joinCount = Math.max(1, Math.floor(joinCount));
+
+    // Array mengikuti urutan label yang tampil: 0, joinCount, 2*joinCount, dst.
+    if (Array.isArray(data)) {
+      data.forEach(function (value, index) {
+        if (value === undefined) return;
+        var publicX = self.options.xStart + (index * joinCount);
+        if (publicX > self.options.xStart + self.options.columns - 1) return;
+        self.xLabels[String(publicX)] = value == null ? '' : String(value);
+      });
+      return;
+    }
+
+    // Object menggunakan nilai koordinat X publik sebagai key.
+    if (typeof data === 'object') {
+      Object.keys(data).forEach(function (key) {
+        var publicX = Number(key);
+        if (!Number.isFinite(publicX)) return;
+        if (publicX < self.options.xStart || publicX > self.options.xStart + self.options.columns - 1) return;
+        var value = data[key];
+        self.xLabels[String(publicX)] = value == null ? '' : String(value);
+      });
+    }
+  };
+
+  InteractiveGrid.prototype._resolveXLabel = function (publicX) {
+    var key = String(publicX);
+    if (Object.prototype.hasOwnProperty.call(this.xLabels, key)) {
+      return this.xLabels[key];
+    }
+    return publicX;
+  };
+
   InteractiveGrid.prototype._renderLabels = function () {
     var o = this.options;
     var xHTML = '', yHTML = '';
@@ -895,8 +944,10 @@
       var left = this._xPositions && this._xPositions[x] != null
         ? this._xPositions[x]
         : x * o.colWidth;
+      var publicX = o.xStart + x;
+      var labelValue = showXLabel ? this._resolveXLabel(publicX) : '';
       xHTML += '<div style="left:' + left + 'px">' +
-        (showXLabel ? this._escape(o.xStart + x) : '') +
+        (showXLabel ? this._escape(labelValue) : '') +
         '</div>';
     }
 
@@ -1546,7 +1597,8 @@
       viewConfig: {
         showTimeTable: !!this.options.showTimeTable,
         showTimePicker: !!this.options.showTimePicker,
-        showStatus: !!this.options.showStatus
+        showStatus: !!this.options.showStatus,
+        xLabels: this.getXLabels()
       }
     };
   };
@@ -1565,6 +1617,9 @@
     }
     if (state.viewConfig && state.viewConfig.showStatus != null) {
       this.setShowStatus(state.viewConfig.showStatus);
+    }
+    if (state.viewConfig && state.viewConfig.xLabels != null) {
+      this.setXLabels(state.viewConfig.xLabels);
     }
     if (state.timeData != null) this.setTimeData(state.timeData, { silent: true });
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
@@ -2118,6 +2173,50 @@
     return groups;
   };
 
+  InteractiveGrid.prototype.setXLabels = function (data) {
+    this._setXLabelsInternal(data);
+    this._renderLabels();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getXLabels = function () {
+    var out = {};
+    Object.keys(this.xLabels).forEach(function (key) {
+      out[key] = this.xLabels[key];
+    }, this);
+    return out;
+  };
+
+  InteractiveGrid.prototype.setXLabel = function (x, value) {
+    x = Number(x);
+    if (!Number.isFinite(x) || x < this.options.xStart || x > this.options.xStart + this.options.columns - 1) {
+      throw new Error('InteractiveGrid.setXLabel: nilai X di luar area grid.');
+    }
+    this.xLabels[String(x)] = value == null ? '' : String(value);
+    this._renderLabels();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getXLabel = function (x) {
+    x = Number(x);
+    if (!Number.isFinite(x)) return null;
+    return this._resolveXLabel(x);
+  };
+
+  InteractiveGrid.prototype.removeXLabel = function (x) {
+    x = Number(x);
+    if (!Number.isFinite(x)) return this;
+    delete this.xLabels[String(x)];
+    this._renderLabels();
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearXLabels = function () {
+    this.xLabels = {};
+    this._renderLabels();
+    return this;
+  };
+
   InteractiveGrid.prototype.setXLabelOffset = function (offset) {
     offset = Number(offset);
     if (!Number.isFinite(offset)) {
@@ -2176,6 +2275,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.1.0';
+  InteractiveGrid.VERSION = '2.2.0';
   return InteractiveGrid;
 });

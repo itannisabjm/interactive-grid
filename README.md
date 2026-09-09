@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.1.0**
+**Versi: 2.2.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -22,6 +22,7 @@ Fitur utama:
 - Lebar kolom dapat diatur secara global dengan `colWidth`, lalu dioverride per kolom melalui `columnsConfig` / `colWidths` / `columnWidths`.
 - Tinggi baris dapat diatur secara global dengan `rowHeight`, lalu dioverride per baris melalui `rowsConfig` / `rowHeights`.
 - Tabel **Waktu (Jam)** dapat ditampilkan/disembunyikan dengan `showTimeTable`; cell tabel waktu otomatis digabung mengikuti `colJoinCount`.
+- Label sumbu X dapat dioverride secara dinamis dengan `xLabels` tanpa mengubah koordinat asli.
 - Setiap cell tabel waktu dapat diisi jam. `showTimePicker: true` memakai time picker browser + input manual, sedangkan `false` memakai input teks manual berformat `HH:MM`.
 - Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
@@ -1032,6 +1033,21 @@ const visible = grid.getShowStatus();
 > Jika `showToolbar: false`, seluruh toolbar termasuk tombol dan keterangan status ikut tersembunyi.
 
 
+### API label sumbu X dinamis
+
+```javascript
+grid.setXLabels(data);
+grid.getXLabels();
+
+grid.setXLabel(x, value);
+grid.getXLabel(x);
+grid.removeXLabel(x);
+grid.clearXLabels();
+```
+
+Object `xLabels` menggunakan nilai koordinat X publik sebagai key. Array mengikuti urutan label yang tampil berdasarkan `colJoinCount` saat `setXLabels()` dipanggil.
+
+
 ### API tabel waktu
 
 ```javascript
@@ -1169,7 +1185,10 @@ const grid = new InteractiveGrid('#grafik', {
   columns: 17,
   rows: 11,
   xStart: 0,
-  colJoinCount: 1, // tampilkan angka X setiap 1 kolom; alias: step
+  colJoinCount: 1,
+
+  // opsional: override teks label X berdasarkan koordinat publik
+  xLabels: null, // tampilkan angka X setiap 1 kolom; alias: step
   xLabelOffset: -6, // geser label X 6px ke kiri
   yStart: 0,
   yLabelStep: 1, // tampilkan angka Y setiap 1 baris
@@ -1692,6 +1711,150 @@ Nilai juga dapat diubah setelah grid dibuat:
 grid.setXLabelOffset(-8);
 console.log(grid.getXLabelOffset());
 ```
+
+### Label sumbu X dinamis: `xLabels`
+
+`xLabels` digunakan untuk mengubah **teks yang ditampilkan** pada sumbu X tanpa mengubah koordinat X sebenarnya.
+
+Default:
+
+```javascript
+xLabels: null
+```
+
+Jika `xLabels` tidak diatur, perilaku tetap seperti biasa. Contoh:
+
+```javascript
+xStart: 0,
+colJoinCount: 2
+```
+
+menampilkan:
+
+```text
+0  2  4  6  8  10  12  14  16
+```
+
+#### Format object
+
+Key menggunakan **nilai koordinat X publik**:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  xStart: 0,
+  colJoinCount: 2,
+
+  xLabels: {
+    0: 'Awal',
+    2: '2 Jam',
+    4: '4 Jam',
+    6: '6 Jam',
+    8: '8 Jam',
+    10: '10 Jam',
+    12: '12 Jam',
+    14: '14 Jam',
+    16: '16 Jam'
+  }
+});
+```
+
+Koordinat internal tetap `0, 2, 4, ... 16`; yang berubah hanya teks label yang terlihat.
+
+Object boleh parsial. Contoh:
+
+```javascript
+xLabels: {
+  0: 'Lahir',
+  4: '4 Jam',
+  8: '8 Jam'
+}
+```
+
+Label lain yang tidak dioverride tetap menggunakan nilai koordinat default.
+
+#### Format array
+
+Array mengikuti **urutan label yang tampil berdasarkan `colJoinCount`**.
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  xStart: 0,
+  colJoinCount: 2,
+
+  xLabels: [
+    '0',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8'
+  ]
+});
+```
+
+Dengan `colJoinCount: 2`, array tersebut dipetakan ke koordinat:
+
+```text
+0, 2, 4, 6, 8, 10, 12, 14, 16
+```
+
+sehingga tampilan label menjadi:
+
+```text
+0  1  2  3  4  5  6  7  8
+```
+
+#### API runtime
+
+Ganti seluruh label:
+
+```javascript
+grid.setXLabels({
+  0: 'Awal',
+  2: 'Tahap 1',
+  4: 'Tahap 2'
+});
+```
+
+Ambil seluruh override:
+
+```javascript
+const labels = grid.getXLabels();
+```
+
+Ubah satu label:
+
+```javascript
+grid.setXLabel(4, 'Empat Jam');
+```
+
+Baca satu label efektif:
+
+```javascript
+const label = grid.getXLabel(4);
+```
+
+Jika koordinat tersebut tidak memiliki override, `getXLabel()` mengembalikan nilai koordinat default.
+
+Hapus override satu label:
+
+```javascript
+grid.removeXLabel(4);
+```
+
+Hapus semua override:
+
+```javascript
+grid.clearXLabels();
+```
+
+`xLabels` hanya memengaruhi tampilan label. Marker, permanent line, koordinat klik, `timeData`, dan struktur tabel waktu tetap menggunakan koordinat asli.
+
 
 ### Tabel Waktu di bawah grafik: `showTimeTable`
 
@@ -2383,7 +2546,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.1.0
+console.log(InteractiveGrid.VERSION); // 2.2.0
 ```
 
 ## Lisensi
@@ -2415,6 +2578,16 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.2.0
+- Menambahkan properti `xLabels` untuk mengubah teks label sumbu X tanpa mengubah koordinat asli.
+- `xLabels` mendukung object berdasarkan nilai koordinat X publik, misalnya `{ 0: 'Awal', 2: '2 Jam' }`.
+- `xLabels` juga mendukung array yang mengikuti urutan label tampil berdasarkan `colJoinCount`.
+- Override boleh parsial; label yang tidak dioverride tetap menggunakan nilai koordinat default.
+- Menambahkan API `setXLabels()`, `getXLabels()`, `setXLabel()`, `getXLabel()`, `removeXLabel()`, dan `clearXLabels()`.
+- `getAllData()` / `toFullJSON()` sekarang menyertakan `viewConfig.xLabels`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.1.0
 - Mengganti nama properti utama `xLabelStep` menjadi `colJoinCount`.
