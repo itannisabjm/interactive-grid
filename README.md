@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.9.0**
+**Versi: 1.9.1**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -18,6 +18,7 @@ Fitur utama:
 - Lebar kolom dapat diatur secara global dengan `colWidth`, lalu dioverride per kolom melalui `columnsConfig` / `colWidths` / `columnWidths`.
 - Tinggi baris dapat diatur secara global dengan `rowHeight`, lalu dioverride per baris melalui `rowsConfig` / `rowHeights`.
 - Tabel **Waktu (Jam)** dapat ditampilkan/disembunyikan dengan `showTimeTable`; cell tabel waktu otomatis digabung mengikuti `xLabelStep`.
+- Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
@@ -753,6 +754,15 @@ localStorage.setItem('grafik', json);
 grid.fromJSON(localStorage.getItem('grafik'));
 ```
 
+### API posisi label sumbu X
+
+```javascript
+grid.setXLabelOffset(-8);
+const offset = grid.getXLabelOffset();
+```
+
+Nilai negatif menggeser label ke kiri; nilai positif ke kanan.
+
 ### API tabel waktu
 
 ```javascript
@@ -891,6 +901,7 @@ const grid = new InteractiveGrid('#grafik', {
   rows: 11,
   xStart: 0,
   xLabelStep: 1, // tampilkan angka X setiap 1 kolom; alias: step
+  xLabelOffset: -6, // geser label X 6px ke kiri
   yStart: 0,
   yLabelStep: 1, // tampilkan angka Y setiap 1 baris
 
@@ -1365,6 +1376,51 @@ grid.clearVerticalTexts();
 
 Perubahan jumlah teks atau `width` akan otomatis menghitung ulang ruang di sebelah kiri grafik, sehingga label Y, grid, overlay, titik, garis, dan area klik tetap sejajar.
 
+
+### Menggeser label angka sumbu X: `xLabelOffset`
+
+Secara default label angka pada sumbu X digeser sedikit ke kiri agar angka tidak tepat berada di atas garis vertikal grid.
+
+Default:
+
+```javascript
+xLabelOffset: -6
+```
+
+Nilai negatif menggeser ke kiri, nilai positif menggeser ke kanan.
+
+Contoh:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+
+  xLabelStep: 2,
+  xLabelOffset: -6
+});
+```
+
+Jika ingin lebih jauh ke kiri:
+
+```javascript
+xLabelOffset: -10
+```
+
+Jika ingin kembali tepat di tengah garis vertikal:
+
+```javascript
+xLabelOffset: 0
+```
+
+Perubahan ini hanya memengaruhi posisi visual angka sumbu X. Posisi grid, marker, garis, permanent line, area klik, dan tabel waktu tidak berubah.
+
+Nilai juga dapat diubah setelah grid dibuat:
+
+```javascript
+grid.setXLabelOffset(-8);
+console.log(grid.getXLabelOffset());
+```
 
 ### Tabel Waktu di bawah grafik: `showTimeTable`
 
@@ -2056,7 +2112,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.9.0
+console.log(InteractiveGrid.VERSION); // 1.9.1
 ```
 
 ## Lisensi
@@ -2088,6 +2144,14 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v1.9.1
+- Menggeser label angka sumbu X sedikit ke kiri secara default agar tidak tertutup garis vertikal grid.
+- Menambahkan properti `xLabelOffset` dengan default `-6` pixel.
+- Nilai negatif menggeser label ke kiri, nilai positif ke kanan, dan `0` mengembalikan label tepat ke tengah garis.
+- Menambahkan API `setXLabelOffset(offset)` dan `getXLabelOffset()`.
+- Perubahan hanya memengaruhi posisi visual label X; grid, koordinat, marker, garis, permanent line, dan tabel waktu tetap tidak berubah.
+
 
 ### v1.9.0
 - Menambahkan properti `showTimeTable` dengan default `true`.

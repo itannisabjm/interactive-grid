@@ -1,10 +1,11 @@
-/* InteractiveGrid v1.9.0 - framework agnostic */
+/* InteractiveGrid v1.9.1 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
   --ig-y-label-w: 48px;
   --ig-vertical-w: 0px;
   --ig-grid-left: 48px;
+  --ig-x-label-offset: -6px;
   --ig-axis-h: 38px;
   --ig-time-h: 54px;
   --ig-grid-color: #111;
@@ -154,7 +155,7 @@
   position: absolute;
   top: 0;
   height: 100%;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% + var(--ig-x-label-offset)));
   display: flex;
   align-items: flex-start;
   justify-content: center;

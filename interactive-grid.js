@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.9.0
+/* InteractiveGrid v1.9.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -17,6 +17,9 @@
     // Jarak antar label angka pada sumbu X.
     // Contoh xLabelStep: 2 -> label: 0, 2, 4, 6, ...
     xLabelStep: 1,
+    // Geser posisi label angka sumbu X secara horizontal (pixel).
+    // Nilai negatif = ke kiri, positif = ke kanan.
+    xLabelOffset: -6,
     // Alias singkat untuk xLabelStep.
     step: null,
     yStart: 0,
@@ -184,6 +187,9 @@
     if (!(this.options.xLabelStep > 0)) this.options.xLabelStep = 1;
     this.options.xLabelStep = Math.max(1, Math.floor(this.options.xLabelStep));
     this.options.step = this.options.xLabelStep;
+
+    this.options.xLabelOffset = Number(this.options.xLabelOffset);
+    if (!Number.isFinite(this.options.xLabelOffset)) this.options.xLabelOffset = -6;
 
     // yLabelStep mengatur frekuensi label angka pada sumbu Y.
     this.options.yLabelStep = Number(this.options.yLabelStep);
@@ -473,6 +479,7 @@
     this.el.classList.add('ig-root');
     this.el.style.setProperty('--ig-cell-w', o.colWidth + 'px');
     this.el.style.setProperty('--ig-cell-h', o.rowHeight + 'px');
+    this.el.style.setProperty('--ig-x-label-offset', o.xLabelOffset + 'px');
     this.el.style.setProperty('--ig-line', o.lineColor);
     this.el.style.setProperty('--ig-mark', o.markColor);
     this.el.style.setProperty('--ig-dot-color', (o.dotColor != null && String(o.dotColor).trim()) ? o.dotColor : o.markColor);
@@ -1783,6 +1790,20 @@
     return groups;
   };
 
+  InteractiveGrid.prototype.setXLabelOffset = function (offset) {
+    offset = Number(offset);
+    if (!Number.isFinite(offset)) {
+      throw new Error('InteractiveGrid.setXLabelOffset: offset harus berupa angka.');
+    }
+    this.options.xLabelOffset = offset;
+    this.el.style.setProperty('--ig-x-label-offset', offset + 'px');
+    return this;
+  };
+
+  InteractiveGrid.prototype.getXLabelOffset = function () {
+    return this.options.xLabelOffset;
+  };
+
   InteractiveGrid.prototype.setXLabelStep = function (step) {
     step = Number(step);
     if (!(step > 0)) throw new Error('InteractiveGrid.setXLabelStep: step harus lebih besar dari 0.');
@@ -1818,6 +1839,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.9.0';
+  InteractiveGrid.VERSION = '1.9.1';
   return InteractiveGrid;
 });
