@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.7.0
+/* InteractiveGrid v1.8.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -49,17 +49,20 @@
     columnWidths: null,
 
     // Tinggi default setiap baris/cell vertikal.
-    // `cellHeight` tetap didukung sebagai alias kompatibilitas versi lama.
-    rowWidth: 42,
+    // `rowHeight` adalah nama utama.
+    // `rowWidth` dan `cellHeight` tetap didukung sebagai alias kompatibilitas versi lama.
+    rowHeight: 42,
+    rowWidth: null,
     cellHeight: 42,
 
     // Override tinggi per baris. Baris dihitung 1-based dari bawah:
     // baris 1 = area antara Y pertama dan Y kedua (mis. Y=0 ke Y=1).
     // Format yang didukung:
-    // rowsConfig: { 2: { rowWidth: 60 }, 5: { rowWidth: 80 } }
-    // rowsConfig: [null, { rowWidth: 60 }, ...]
-    // rowWidths juga didukung sebagai alias ringkas.
+    // rowsConfig: { 2: { rowHeight: 60 }, 5: { rowHeight: 80 } }
+    // rowsConfig: [null, { rowHeight: 60 }, ...]
+    // rowHeights adalah alias ringkas utama; rowWidths tetap diterima untuk kompatibilitas.
     rowsConfig: null,
+    rowHeights: null,
     rowWidths: null,
 
     xAxisTitle: 'Waktu',
@@ -197,20 +200,23 @@
     this._loadColumnWidthOverrides(this.options.columnWidths);
     this._loadColumnWidthOverrides(this.options.columnsConfig);
 
-    // rowWidth adalah nama utama untuk tinggi default baris.
-    // Jika rowWidth tidak diberikan tetapi cellHeight lama diberikan, gunakan cellHeight.
-    var requestedRowWidth = null;
-    if (options && options.rowWidth != null) requestedRowWidth = Number(options.rowWidth);
-    else if (options && options.cellHeight != null) requestedRowWidth = Number(options.cellHeight);
-    else requestedRowWidth = Number(this.options.rowWidth);
+    // rowHeight adalah nama utama untuk tinggi default baris.
+    // Prioritas: rowHeight -> rowWidth lama -> cellHeight lama -> default 42.
+    var requestedRowHeight = null;
+    if (options && options.rowHeight != null) requestedRowHeight = Number(options.rowHeight);
+    else if (options && options.rowWidth != null) requestedRowHeight = Number(options.rowWidth);
+    else if (options && options.cellHeight != null) requestedRowHeight = Number(options.cellHeight);
+    else requestedRowHeight = Number(this.options.rowHeight);
 
-    if (!(requestedRowWidth > 0)) requestedRowWidth = 42;
-    this.options.rowWidth = requestedRowWidth;
-    this.options.cellHeight = requestedRowWidth; // alias kompatibilitas
+    if (!(requestedRowHeight > 0)) requestedRowHeight = 42;
+    this.options.rowHeight = requestedRowHeight;
+    this.options.rowWidth = requestedRowHeight; // alias kompatibilitas
+    this.options.cellHeight = requestedRowHeight; // alias kompatibilitas
 
-    this._rowWidthOverrides = {};
-    this._loadRowWidthOverrides(this.options.rowWidths);
-    this._loadRowWidthOverrides(this.options.rowsConfig);
+    this._rowHeightOverrides = {};
+    this._loadRowHeightOverrides(this.options.rowWidths);
+    this._loadRowHeightOverrides(this.options.rowHeights);
+    this._loadRowHeightOverrides(this.options.rowsConfig);
 
     // Alias opsi lama -> nama baru, tanpa merusak implementasi lama.
     if (options && options.dotSize == null && options.markSize != null) this.options.dotSize = Number(options.markSize);
@@ -340,15 +346,15 @@
     return isArray ? (n + 1) : n;
   };
 
-  InteractiveGrid.prototype._extractRowWidth = function (value) {
+  InteractiveGrid.prototype._extractRowHeight = function (value) {
     if (value != null && typeof value === 'object' && !Array.isArray(value)) {
-      value = value.rowWidth;
+      value = value.rowHeight != null ? value.rowHeight : value.rowWidth;
     }
     value = Number(value);
     return value > 0 ? value : null;
   };
 
-  InteractiveGrid.prototype._loadRowWidthOverrides = function (source) {
+  InteractiveGrid.prototype._loadRowHeightOverrides = function (source) {
     if (source == null) return;
 
     var self = this;
@@ -357,9 +363,9 @@
     if (Array.isArray(source)) {
       source.forEach(function (value, index) {
         var rowNumber = self._rowNumberFromKey(index, true);
-        var height = self._extractRowWidth(value);
+        var height = self._extractRowHeight(value);
         if (rowNumber >= 1 && rowNumber <= maxRow && height != null) {
-          self._rowWidthOverrides[rowNumber] = height;
+          self._rowHeightOverrides[rowNumber] = height;
         }
       });
       return;
@@ -368,9 +374,9 @@
     if (typeof source === 'object') {
       Object.keys(source).forEach(function (key) {
         var rowNumber = self._rowNumberFromKey(key, false);
-        var height = self._extractRowWidth(source[key]);
+        var height = self._extractRowHeight(source[key]);
         if (rowNumber >= 1 && rowNumber <= maxRow && height != null) {
-          self._rowWidthOverrides[rowNumber] = height;
+          self._rowHeightOverrides[rowNumber] = height;
         }
       });
     }
@@ -385,8 +391,8 @@
 
     // row 1 = antara Y=0 dan Y=1, sehingga cumulative dihitung dari bawah.
     for (var i = 1; i <= count; i++) {
-      var height = Number(this._rowWidthOverrides[i]);
-      if (!(height > 0)) height = Number(o.rowWidth);
+      var height = Number(this._rowHeightOverrides[i]);
+      if (!(height > 0)) height = Number(o.rowHeight);
       if (!(height > 0)) height = 42;
 
       heights.push(height);
@@ -423,9 +429,9 @@
     }
   };
 
-  InteractiveGrid.prototype._refreshRowLayout = function () {
+  InteractiveGrid.prototype._refreshRowHeightLayout = function () {
     if (!this.dom) return this;
-    this.el.style.setProperty('--ig-cell-h', this.options.rowWidth + 'px');
+    this.el.style.setProperty('--ig-cell-h', this.options.rowHeight + 'px');
     this._layout();
     this._renderLabels();
     this._renderVerticalTexts();
@@ -438,7 +444,7 @@
     this.el.innerHTML = '';
     this.el.classList.add('ig-root');
     this.el.style.setProperty('--ig-cell-w', o.colWidth + 'px');
-    this.el.style.setProperty('--ig-cell-h', o.rowWidth + 'px');
+    this.el.style.setProperty('--ig-cell-h', o.rowHeight + 'px');
     this.el.style.setProperty('--ig-line', o.lineColor);
     this.el.style.setProperty('--ig-mark', o.markColor);
     this.el.style.setProperty('--ig-dot-color', (o.dotColor != null && String(o.dotColor).trim()) ? o.dotColor : o.markColor);
@@ -529,7 +535,7 @@
     // Ruang di kanan mengikuti setengah lebar kolom terakhir agar label X terakhir tetap terlihat.
     var topRowHeight = this._rowHeights.length
       ? this._rowHeights[this._rowHeights.length - 1]
-      : o.rowWidth;
+      : o.rowHeight;
     var topPad = Math.ceil(topRowHeight / 2) + 4;
 
     var lastColWidth = this._columnWidths.length
@@ -713,7 +719,7 @@
       var showYLabel = (y % yStep) === 0;
       var top = this._yPositions && this._yPositions[y] != null
         ? this._yPositions[y]
-        : (o.rows - 1 - y) * o.rowWidth;
+        : (o.rows - 1 - y) * o.rowHeight;
 
       yHTML += '<div style="top:' + top + 'px">' +
         (showYLabel ? this._escape(o.yStart + y) : '') +
@@ -1481,22 +1487,14 @@
     return this._refreshColumnLayout();
   };
 
-  InteractiveGrid.prototype.getRowWidth = function () {
-    return this.options.rowWidth;
-  };
-
-  InteractiveGrid.prototype.setRowWidth = function (height) {
-    height = Number(height);
-    if (!(height > 0)) {
-      throw new Error('InteractiveGrid.setRowWidth: height harus lebih besar dari 0.');
-    }
-
-    this.options.rowWidth = height;
-    this.options.cellHeight = height;
-    return this._refreshRowLayout();
-  };
-
+  // rowHeight API:
+  // - getRowHeight() -> tinggi default
+  // - getRowHeight(n) -> tinggi aktual baris ke-n
+  // - setRowHeight(h) -> ubah tinggi default
+  // - setRowHeight(n, h) -> ubah tinggi baris ke-n
   InteractiveGrid.prototype.getRowHeight = function (rowNumber) {
+    if (rowNumber == null) return this.options.rowHeight;
+
     rowNumber = Number(rowNumber);
     if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > this.options.rows - 1) {
       return null;
@@ -1508,21 +1506,23 @@
     return this._rowHeights[rowNumber - 1];
   };
 
-  // Alias nama yang konsisten dengan properti rowWidth.
-  InteractiveGrid.prototype.getRowWidthAt = InteractiveGrid.prototype.getRowHeight;
+  InteractiveGrid.prototype.setRowHeight = function (arg1, arg2) {
+    // Satu argumen: set tinggi default seluruh baris.
+    if (arg2 == null) {
+      var defaultHeight = Number(arg1);
+      if (!(defaultHeight > 0)) {
+        throw new Error('InteractiveGrid.setRowHeight: height harus lebih besar dari 0.');
+      }
 
-  InteractiveGrid.prototype.getRowHeights = function () {
-    if (!this._rowHeights || this._rowHeights.length !== this.options.rows - 1) {
-      this._rebuildRowGeometry();
+      this.options.rowHeight = defaultHeight;
+      this.options.rowWidth = defaultHeight; // alias lama
+      this.options.cellHeight = defaultHeight; // alias lama
+      return this._refreshRowHeightLayout();
     }
-    return this._rowHeights.slice();
-  };
 
-  InteractiveGrid.prototype.getRowWidths = InteractiveGrid.prototype.getRowHeights;
-
-  InteractiveGrid.prototype.setRowHeight = function (rowNumber, height) {
-    rowNumber = Number(rowNumber);
-    height = Number(height);
+    // Dua argumen: set tinggi baris tertentu.
+    var rowNumber = Number(arg1);
+    var height = Number(arg2);
 
     if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > this.options.rows - 1) {
       throw new Error('InteractiveGrid.setRowHeight: nomor baris harus 1 sampai ' + (this.options.rows - 1) + '.');
@@ -1531,11 +1531,16 @@
       throw new Error('InteractiveGrid.setRowHeight: height harus lebih besar dari 0.');
     }
 
-    this._rowWidthOverrides[rowNumber] = height;
-    return this._refreshRowLayout();
+    this._rowHeightOverrides[rowNumber] = height;
+    return this._refreshRowHeightLayout();
   };
 
-  InteractiveGrid.prototype.setRowWidthAt = InteractiveGrid.prototype.setRowHeight;
+  InteractiveGrid.prototype.getRowHeights = function () {
+    if (!this._rowHeights || this._rowHeights.length !== this.options.rows - 1) {
+      this._rebuildRowGeometry();
+    }
+    return this._rowHeights.slice();
+  };
 
   InteractiveGrid.prototype.resetRowHeight = function (rowNumber) {
     rowNumber = Number(rowNumber);
@@ -1543,26 +1548,24 @@
       throw new Error('InteractiveGrid.resetRowHeight: nomor baris harus 1 sampai ' + (this.options.rows - 1) + '.');
     }
 
-    delete this._rowWidthOverrides[rowNumber];
-    return this._refreshRowLayout();
+    delete this._rowHeightOverrides[rowNumber];
+    return this._refreshRowHeightLayout();
   };
 
-  InteractiveGrid.prototype.resetRowWidthAt = InteractiveGrid.prototype.resetRowHeight;
-
-  InteractiveGrid.prototype.setRowWidths = function (config) {
-    this._rowWidthOverrides = {};
-    this._loadRowWidthOverrides(config);
-    return this._refreshRowLayout();
+  InteractiveGrid.prototype.setRowHeights = function (config) {
+    this._rowHeightOverrides = {};
+    this._loadRowHeightOverrides(config);
+    return this._refreshRowHeightLayout();
   };
 
   InteractiveGrid.prototype.getRowLayout = function () {
     var config = {};
-    Object.keys(this._rowWidthOverrides).forEach(function (key) {
-      config[key] = { rowWidth: Number(this._rowWidthOverrides[key]) };
+    Object.keys(this._rowHeightOverrides).forEach(function (key) {
+      config[key] = { rowHeight: Number(this._rowHeightOverrides[key]) };
     }, this);
 
     return {
-      rowWidth: this.options.rowWidth,
+      rowHeight: this.options.rowHeight,
       rowsConfig: config
     };
   };
@@ -1570,21 +1573,54 @@
   InteractiveGrid.prototype.setRowLayout = function (layout) {
     layout = layout || {};
 
-    if (layout.rowWidth != null) {
-      var height = Number(layout.rowWidth);
+    var defaultHeight = layout.rowHeight != null ? layout.rowHeight : layout.rowWidth;
+    if (defaultHeight != null) {
+      var height = Number(defaultHeight);
       if (!(height > 0)) {
-        throw new Error('InteractiveGrid.setRowLayout: rowWidth harus lebih besar dari 0.');
+        throw new Error('InteractiveGrid.setRowLayout: rowHeight harus lebih besar dari 0.');
       }
-      this.options.rowWidth = height;
-      this.options.cellHeight = height;
+      this.options.rowHeight = height;
+      this.options.rowWidth = height; // alias lama
+      this.options.cellHeight = height; // alias lama
     }
 
-    this._rowWidthOverrides = {};
-    this._loadRowWidthOverrides(layout.rowWidths);
-    this._loadRowWidthOverrides(layout.rowsConfig);
+    this._rowHeightOverrides = {};
+    this._loadRowHeightOverrides(layout.rowWidths);
+    this._loadRowHeightOverrides(layout.rowHeights);
+    this._loadRowHeightOverrides(layout.rowsConfig);
 
-    return this._refreshRowLayout();
+    return this._refreshRowHeightLayout();
   };
+
+  // Alias kompatibilitas v1.7.0 dan sebelumnya.
+  InteractiveGrid.prototype.getRowWidth = function (rowNumber) {
+    return this.getRowHeight(rowNumber);
+  };
+
+  InteractiveGrid.prototype.setRowWidth = function (arg1, arg2) {
+    return this.setRowHeight(arg1, arg2);
+  };
+
+  InteractiveGrid.prototype.getRowWidthAt = function (rowNumber) {
+    return this.getRowHeight(rowNumber);
+  };
+
+  InteractiveGrid.prototype.setRowWidthAt = function (rowNumber, height) {
+    return this.setRowHeight(rowNumber, height);
+  };
+
+  InteractiveGrid.prototype.getRowWidths = function () {
+    return this.getRowHeights();
+  };
+
+  InteractiveGrid.prototype.setRowWidths = function (config) {
+    return this.setRowHeights(config);
+  };
+
+  InteractiveGrid.prototype.resetRowWidthAt = function (rowNumber) {
+    return this.resetRowHeight(rowNumber);
+  };
+
 
   InteractiveGrid.prototype.getVerticalTexts = function () {
     return cloneVerticalTexts(this.verticalTexts);
@@ -1702,6 +1738,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.7.0';
+  InteractiveGrid.VERSION = '1.8.0';
   return InteractiveGrid;
 });
