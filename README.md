@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.9.2**
+**Versi: 2.0.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -19,6 +19,7 @@ Fitur utama:
 - Lebar kolom dapat diatur secara global dengan `colWidth`, lalu dioverride per kolom melalui `columnsConfig` / `colWidths` / `columnWidths`.
 - Tinggi baris dapat diatur secara global dengan `rowHeight`, lalu dioverride per baris melalui `rowsConfig` / `rowHeights`.
 - Tabel **Waktu (Jam)** dapat ditampilkan/disembunyikan dengan `showTimeTable`; cell tabel waktu otomatis digabung mengikuti `xLabelStep`.
+- Setiap cell tabel waktu dapat diisi jam. `showTimePicker: true` memakai time picker browser + input manual, sedangkan `false` memakai input teks manual berformat `HH:MM`.
 - Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
@@ -764,6 +765,214 @@ const offset = grid.getXLabelOffset();
 
 Nilai negatif menggeser label ke kiri; nilai positif ke kanan.
 
+### Input jam pada cell tabel waktu: `showTimePicker`
+
+Setiap cell pada tabel **Waktu (Jam)** sekarang dapat diisi data jam.
+
+Format yang digunakan adalah:
+
+```text
+HH:MM
+```
+
+contoh:
+
+```text
+07:30
+08:00
+13:45
+23:59
+```
+
+Nilai jam yang valid adalah `00:00` sampai `23:59`.
+
+#### Menggunakan time picker
+
+Default:
+
+```javascript
+showTimePicker: true
+```
+
+Contoh:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  showTimeTable: true,
+  showTimePicker: true
+});
+```
+
+Pada mode ini plugin menggunakan:
+
+```html
+<input type="time">
+```
+
+sehingga browser dapat menampilkan **time picker**. Pada browser yang mendukungnya, pengguna juga tetap dapat mengetik jam secara manual.
+
+#### Hanya input manual
+
+Jika:
+
+```javascript
+showTimePicker: false
+```
+
+plugin menggunakan input teks biasa. Pengguna mengisi jam dengan keyboard, misalnya:
+
+```text
+08:15
+```
+
+Saat input selesai (`blur` / `change`), nilai seperti:
+
+```text
+8:5
+```
+
+akan dinormalisasi menjadi:
+
+```text
+08:05
+```
+
+Jika nilainya tidak valid, misalnya `25:90`, input diberi tanda invalid dan tidak disimpan sebagai nilai valid baru.
+
+#### Data awal
+
+Data dapat diberikan saat membuat grid:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  xLabelStep: 2,
+  showTimeTable: true,
+  showTimePicker: true,
+
+  timeData: [
+    '08:00',
+    '10:00',
+    '12:00',
+    '14:00',
+    '16:00',
+    '18:00',
+    '20:00',
+    '22:00'
+  ]
+});
+```
+
+Array di atas mengikuti urutan cell tabel waktu dari kiri ke kanan.
+
+Format object juga dapat digunakan dengan `startColumn` sebagai key:
+
+```javascript
+timeData: {
+  1: '08:00',
+  3: '10:00',
+  5: '12:00'
+}
+```
+
+Untuk `xLabelStep: 2`, start column cell adalah `1, 3, 5, ...`.
+
+#### API data waktu
+
+Mengambil seluruh data:
+
+```javascript
+const dataWaktu = grid.getTimeData();
+```
+
+Contoh hasil:
+
+```javascript
+[
+  {
+    startColumn: 1,
+    endColumn: 2,
+    fromX: 0,
+    toX: 2,
+    value: '08:00'
+  },
+  {
+    startColumn: 3,
+    endColumn: 4,
+    fromX: 2,
+    toX: 4,
+    value: '10:00'
+  }
+]
+```
+
+Mengisi seluruh data:
+
+```javascript
+grid.setTimeData([
+  '08:00',
+  '10:00',
+  '12:00'
+]);
+```
+
+Mengisi satu cell berdasarkan `startColumn`:
+
+```javascript
+grid.setTimeValue(1, '08:00');
+grid.setTimeValue(3, '10:00');
+```
+
+Membaca satu nilai:
+
+```javascript
+const jam = grid.getTimeValue(1);
+```
+
+Menghapus seluruh nilai waktu:
+
+```javascript
+grid.clearTimeData();
+```
+
+#### Mengubah mode picker setelah grid dibuat
+
+```javascript
+grid.setShowTimePicker(true);
+grid.setShowTimePicker(false);
+```
+
+Membaca pengaturannya:
+
+```javascript
+const pickerAktif = grid.getShowTimePicker();
+```
+
+#### Event perubahan waktu
+
+Plugin mengirim event:
+
+```javascript
+document.querySelector('#grafik').addEventListener('interactivegrid:timechange', function (e) {
+  console.log(e.detail.group);
+  console.log(e.detail.value);
+  console.log(e.detail.data);
+});
+```
+
+Atau callback:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  onTimeChange(data, group, value) {
+    console.log('Data waktu:', data);
+  }
+});
+```
+
+Data waktu juga ikut masuk ke `getAllData()` / `toFullJSON()` sebagai `timeData`.
+
+
 ### Keterangan jumlah tanda / koordinat: `showStatus`
 
 Keterangan seperti:
@@ -984,6 +1193,8 @@ const grid = new InteractiveGrid('#grafik', {
   xAxisSubtitle: '(Jam)',
 
   showTimeTable: true,
+  showTimePicker: true,
+  timeInputPlaceholder: 'HH:MM',
 
   showToolbar: true,
   showStatus: true, // tampilkan keterangan jumlah tanda/koordinat di toolbar
@@ -2162,7 +2373,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.9.2
+console.log(InteractiveGrid.VERSION); // 2.0.0
 ```
 
 ## Lisensi
@@ -2194,6 +2405,20 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.0.0
+- Setiap cell tabel **Waktu (Jam)** sekarang dapat diisi nilai jam.
+- Menambahkan `showTimePicker` dengan default `true`.
+- `showTimePicker: true` menggunakan input `type=time`, sehingga browser dapat menyediakan time picker dan tetap mendukung input keyboard sesuai kemampuan browser.
+- `showTimePicker: false` menggunakan input teks manual dengan format `HH:MM`.
+- Input manual dinormalisasi, misalnya `8:5` menjadi `08:05`, dengan rentang valid `00:00` sampai `23:59`.
+- Menambahkan `timeData` untuk data awal.
+- Menambahkan API `getTimeData()`, `setTimeData()`, `clearTimeData()`, `getTimeValue()`, `setTimeValue()`, `getShowTimePicker()`, dan `setShowTimePicker()`.
+- Menambahkan callback `onTimeChange` dan event DOM `interactivegrid:timechange`.
+- Input waktu mengikuti merge cell berdasarkan `xLabelStep` dan tetap mendukung `colWidth` yang berbeda per kolom.
+- `getAllData()` / `toFullJSON()` sekarang menyertakan `timeData` dan `viewConfig.showTimePicker`.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v1.9.2
 - Memindahkan keterangan jumlah tanda/koordinat ke toolbar, tepat di sebelah kanan tombol **Hapus Semua**.

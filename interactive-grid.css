@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.9.2 - framework agnostic */
+/* InteractiveGrid v2.0.0 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -184,6 +184,49 @@
   border-right: 1px solid var(--ig-grid-color);
   background: var(--ig-bg);
   overflow: visible;
+}
+
+.ig-time-input-wrap {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 7px;
+  z-index: 2;
+}
+
+.ig-time-input {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  font-size: 13px;
+  text-align: center;
+  padding: 4px 6px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.ig-time-input:focus {
+  border-color: #555;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08);
+}
+
+.ig-time-input.ig-time-invalid {
+  border-color: #c62828;
+  background: #fff6f6;
+}
+
+/* Supaya ikon picker tidak menutupi teks terlalu banyak pada cell sempit. */
+.ig-time-input[type="time"] {
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 .ig-overlay {

@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.9.2
+/* InteractiveGrid v2.0.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -75,6 +75,14 @@
     // Jika true, tabel waktu ditampilkan dan cell-nya mengikuti xLabelStep.
     // Jika false, tabel waktu disembunyikan.
     showTimeTable: true,
+
+    // Input jam pada setiap cell tabel waktu.
+    // true  = input type=time (picker browser + bisa diketik manual bila browser mendukung)
+    // false = input text manual dengan validasi/normalisasi HH:MM
+    showTimePicker: true,
+    timeInputPlaceholder: 'HH:MM',
+    timeData: [],
+    onTimeChange: null,
 
     showToolbar: true,
     showStatus: true,
@@ -243,6 +251,9 @@
     this._verticalTextSeq = 0;
     this._setVerticalTextsInternal(this.options.verticalTexts);
 
+    this.timeData = {};
+    this._setTimeDataInternal(this.options.timeData);
+
     this.history = [];
     this.pendingCell = null;
     this.destroyed = false;
@@ -318,6 +329,119 @@
     this._gridWidth = total;
   };
 
+  InteractiveGrid.prototype._normalizeTimeValue = function (value, allowEmpty) {
+    if (value == null) return allowEmpty ? '' : null;
+    value = String(value).trim();
+    if (!value) return allowEmpty ? '' : null;
+
+    // Terima H:M, H:MM, HH:M, HH:MM lalu normalisasi menjadi HH:MM.
+    var m = value.match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
+    if (!m) return null;
+
+    var h = Number(m[1]);
+    var min = Number(m[2]);
+    if (!Number.isInteger(h) || !Number.isInteger(min) || h < 0 || h > 23 || min < 0 || min > 59) {
+      return null;
+    }
+
+    return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+  };
+
+  InteractiveGrid.prototype._setTimeDataInternal = function (data) {
+    this.timeData = {};
+    if (data == null) return;
+
+    var self = this;
+
+    // Array string: index 0 = group/cell waktu pertama.
+    if (Array.isArray(data)) {
+      data.forEach(function (item, index) {
+        var startColumn = index + 1;
+        var value = item;
+
+        if (item && typeof item === 'object') {
+          startColumn = Number(item.startColumn != null ? item.startColumn : (item.column != null ? item.column : startColumn));
+          value = item.value != null ? item.value : item.time;
+        }
+
+        var normalized = self._normalizeTimeValue(value, true);
+        if (Number.isInteger(startColumn) && startColumn >= 1 && normalized != null) {
+          self.timeData[startColumn] = normalized;
+        }
+      });
+      return;
+    }
+
+    // Object: key = startColumn, value = jam.
+    if (typeof data === 'object') {
+      Object.keys(data).forEach(function (key) {
+        var startColumn = Number(key);
+        var value = data[key];
+        if (value && typeof value === 'object') value = value.value != null ? value.value : value.time;
+        var normalized = self._normalizeTimeValue(value, true);
+        if (Number.isInteger(startColumn) && startColumn >= 1 && normalized != null) {
+          self.timeData[startColumn] = normalized;
+        }
+      });
+    }
+  };
+
+  InteractiveGrid.prototype._emitTimeChange = function (group, value) {
+    var detail = {
+      group: group,
+      value: value,
+      data: this.getTimeData()
+    };
+
+    this.el.dispatchEvent(new CustomEvent('interactivegrid:timechange', { detail: detail }));
+    if (typeof this.options.onTimeChange === 'function') {
+      this.options.onTimeChange(detail.data, group, value);
+    }
+  };
+
+  InteractiveGrid.prototype._renderTimeInputs = function () {
+    if (!this.dom || !this.dom.timeCells) return;
+
+    var container = this.dom.timeCells;
+    var oldInputs = container.querySelectorAll('.ig-time-input-wrap');
+    for (var oi = 0; oi < oldInputs.length; oi++) oldInputs[oi].remove();
+
+    if (!this.options.showTimeTable) return;
+
+    var groups = this.getTimeTableGroups();
+    for (var i = 0; i < groups.length; i++) {
+      var group = groups[i];
+      var startIndex = group.startColumn - 1;
+      var left = this._xPositions[startIndex];
+
+      var wrap = document.createElement('div');
+      wrap.className = 'ig-time-input-wrap';
+      wrap.style.left = left + 'px';
+      wrap.style.width = group.width + 'px';
+      wrap.setAttribute('data-start-column', group.startColumn);
+      wrap.setAttribute('data-end-column', group.endColumn);
+
+      var input = document.createElement('input');
+      input.className = 'ig-time-input';
+      input.type = this.options.showTimePicker ? 'time' : 'text';
+      input.value = this.timeData[group.startColumn] || '';
+      input.setAttribute('data-start-column', group.startColumn);
+      input.setAttribute('aria-label', 'Waktu kolom ' + group.startColumn + ' sampai ' + group.endColumn);
+
+      if (this.options.showTimePicker) {
+        input.step = '60';
+      } else {
+        input.inputMode = 'numeric';
+        input.placeholder = this.options.timeInputPlaceholder || 'HH:MM';
+        input.maxLength = 5;
+        input.setAttribute('pattern', '[0-2][0-9]:[0-5][0-9]');
+      }
+
+      wrap.appendChild(input);
+      container.appendChild(wrap);
+    }
+  };
+
   InteractiveGrid.prototype._renderColumnGuides = function () {
     if (!this.dom || !this.dom.grid || !this.dom.timeCells || !this.dom.xLabels) return;
 
@@ -361,6 +485,8 @@
       timeLine.style.left = bx + 'px';
       this.dom.timeCells.appendChild(timeLine);
     }
+
+    this._renderTimeInputs();
   };
 
   InteractiveGrid.prototype._refreshColumnLayout = function () {
@@ -817,6 +943,68 @@
 
     this._bind(d.undo, 'click', function () { self.undo(); });
     this._bind(d.clear, 'click', function () { self.clear(); });
+
+    // Input data pada tabel waktu.
+    this._bind(d.timeCells, 'input', function (e) {
+      var input = e.target.closest('.ig-time-input');
+      if (!input) return;
+
+      if (!self.options.showTimePicker) {
+        // Untuk mode manual, izinkan hanya digit dan ':' serta batasi 5 karakter.
+        var cleaned = String(input.value || '').replace(/[^0-9:]/g, '').slice(0, 5);
+        if (cleaned !== input.value) input.value = cleaned;
+      }
+    });
+
+    this._bind(d.timeCells, 'change', function (e) {
+      var input = e.target.closest('.ig-time-input');
+      if (!input) return;
+
+      var startColumn = Number(input.getAttribute('data-start-column'));
+      var normalized = self._normalizeTimeValue(input.value, true);
+      if (normalized == null) {
+        input.classList.add('ig-time-invalid');
+        return;
+      }
+
+      input.classList.remove('ig-time-invalid');
+      input.value = normalized;
+      self.timeData[startColumn] = normalized;
+
+      var groups = self.getTimeTableGroups();
+      var group = null;
+      for (var i = 0; i < groups.length; i++) {
+        if (groups[i].startColumn === startColumn) { group = groups[i]; break; }
+      }
+      self._emitTimeChange(group, normalized);
+    });
+
+    this._bind(d.timeCells, 'blur', function (e) {
+      var input = e.target.closest('.ig-time-input');
+      if (!input) return;
+
+      var startColumn = Number(input.getAttribute('data-start-column'));
+      var normalized = self._normalizeTimeValue(input.value, true);
+
+      if (normalized == null) {
+        input.classList.add('ig-time-invalid');
+        return;
+      }
+
+      input.classList.remove('ig-time-invalid');
+      input.value = normalized;
+      var previous = self.timeData[startColumn] || '';
+      self.timeData[startColumn] = normalized;
+
+      if (previous !== normalized) {
+        var groups = self.getTimeTableGroups();
+        var group = null;
+        for (var i = 0; i < groups.length; i++) {
+          if (groups[i].startColumn === startColumn) { group = groups[i]; break; }
+        }
+        self._emitTimeChange(group, normalized);
+      }
+    }, true);
 
     this._bind(document, 'mousedown', function (e) {
       if (!self.el.contains(e.target)) self._hideMenu();
@@ -1324,8 +1512,10 @@
       verticalTexts: this.getVerticalTexts(),
       columnLayout: this.getColumnLayout(),
       rowLayout: this.getRowLayout(),
+      timeData: this.getTimeData(),
       viewConfig: {
         showTimeTable: !!this.options.showTimeTable,
+        showTimePicker: !!this.options.showTimePicker,
         showStatus: !!this.options.showStatus
       }
     };
@@ -1340,9 +1530,13 @@
     if (state.viewConfig && state.viewConfig.showTimeTable != null) {
       this.setShowTimeTable(state.viewConfig.showTimeTable);
     }
+    if (state.viewConfig && state.viewConfig.showTimePicker != null) {
+      this.setShowTimePicker(state.viewConfig.showTimePicker);
+    }
     if (state.viewConfig && state.viewConfig.showStatus != null) {
       this.setShowStatus(state.viewConfig.showStatus);
     }
+    if (state.timeData != null) this.setTimeData(state.timeData, { silent: true });
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
   };
@@ -1764,6 +1958,97 @@
     return !!this.options.showStatus;
   };
 
+  InteractiveGrid.prototype.setShowTimePicker = function (show) {
+    this.options.showTimePicker = !!show;
+    this._renderTimeInputs();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getShowTimePicker = function () {
+    return !!this.options.showTimePicker;
+  };
+
+  InteractiveGrid.prototype.getTimeData = function () {
+    var groups = this.getTimeTableGroups();
+    var out = [];
+
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i];
+      out.push({
+        startColumn: g.startColumn,
+        endColumn: g.endColumn,
+        fromX: g.fromX,
+        toX: g.toX,
+        value: this.timeData[g.startColumn] || ''
+      });
+    }
+
+    return out;
+  };
+
+  InteractiveGrid.prototype.setTimeData = function (data, options) {
+    options = options || {};
+    this._setTimeDataInternal(data);
+    this._renderTimeInputs();
+
+    if (!options.silent) {
+      this.el.dispatchEvent(new CustomEvent('interactivegrid:timechange', {
+        detail: { group: null, value: null, data: this.getTimeData() }
+      }));
+      if (typeof this.options.onTimeChange === 'function') {
+        this.options.onTimeChange(this.getTimeData(), null, null);
+      }
+    }
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearTimeData = function (options) {
+    options = options || {};
+    this.timeData = {};
+    this._renderTimeInputs();
+
+    if (!options.silent) {
+      this.el.dispatchEvent(new CustomEvent('interactivegrid:timechange', {
+        detail: { group: null, value: null, data: this.getTimeData() }
+      }));
+      if (typeof this.options.onTimeChange === 'function') {
+        this.options.onTimeChange(this.getTimeData(), null, null);
+      }
+    }
+    return this;
+  };
+
+  InteractiveGrid.prototype.setTimeValue = function (startColumn, value, options) {
+    options = options || {};
+    startColumn = Number(startColumn);
+    var normalized = this._normalizeTimeValue(value, true);
+
+    if (!Number.isInteger(startColumn) || startColumn < 1 || startColumn > this.options.columns - 1) {
+      throw new Error('InteractiveGrid.setTimeValue: startColumn di luar rentang tabel waktu.');
+    }
+    if (normalized == null) {
+      throw new Error('InteractiveGrid.setTimeValue: format waktu harus HH:MM (00:00 sampai 23:59).');
+    }
+
+    this.timeData[startColumn] = normalized;
+    this._renderTimeInputs();
+
+    if (!options.silent) {
+      var groups = this.getTimeTableGroups();
+      var group = null;
+      for (var i = 0; i < groups.length; i++) {
+        if (groups[i].startColumn === startColumn) { group = groups[i]; break; }
+      }
+      this._emitTimeChange(group, normalized);
+    }
+    return this;
+  };
+
+  InteractiveGrid.prototype.getTimeValue = function (startColumn) {
+    startColumn = Number(startColumn);
+    return this.timeData[startColumn] || '';
+  };
+
   InteractiveGrid.prototype.setShowTimeTable = function (show) {
     this.options.showTimeTable = !!show;
     this._layout();
@@ -1852,6 +2137,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.9.2';
+  InteractiveGrid.VERSION = '2.0.0';
   return InteractiveGrid;
 });
