@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.0.1
+/* InteractiveGrid v2.1.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -14,13 +14,14 @@
     columns: 17,          // x = 0..16
     rows: 11,             // y = 0..10
     xStart: 0,
-    // Jarak antar label angka pada sumbu X.
-    // Contoh xLabelStep: 2 -> label: 0, 2, 4, 6, ...
-    xLabelStep: 1,
+    // Jumlah kolom utama yang digabung untuk label sumbu X dan cell tabel waktu.
+    // Contoh colJoinCount: 2 -> label: 0, 2, 4, 6, ...
+    colJoinCount: 1,
     // Geser posisi label angka sumbu X secara horizontal (pixel).
     // Nilai negatif = ke kiri, positif = ke kanan.
     xLabelOffset: -6,
-    // Alias singkat untuk xLabelStep.
+    // Alias kompatibilitas versi lama.
+    xLabelStep: null,
     step: null,
     yStart: 0,
     // Jarak antar label angka pada sumbu Y.
@@ -72,7 +73,7 @@
     xAxisSubtitle: '(Jam)',
 
     // Tabel waktu di bawah sumbu X.
-    // Jika true, tabel waktu ditampilkan dan cell-nya mengikuti xLabelStep.
+    // Jika true, tabel waktu ditampilkan dan cell-nya mengikuti colJoinCount.
     // Jika false, tabel waktu disembunyikan.
     showTimeTable: true,
 
@@ -187,14 +188,18 @@
 
     this.options = merge(DEFAULTS, options || {});
 
-    // xLabelStep adalah nama utama. `step` adalah alias singkat.
-    if (options && options.xLabelStep == null && options.step != null) {
-      this.options.xLabelStep = Number(options.step);
-    }
-    this.options.xLabelStep = Number(this.options.xLabelStep);
-    if (!(this.options.xLabelStep > 0)) this.options.xLabelStep = 1;
-    this.options.xLabelStep = Math.max(1, Math.floor(this.options.xLabelStep));
-    this.options.step = this.options.xLabelStep;
+    // colJoinCount adalah nama utama. xLabelStep dan step tetap diterima sebagai alias kompatibilitas.
+    var requestedColJoinCount = null;
+    if (options && options.colJoinCount != null) requestedColJoinCount = Number(options.colJoinCount);
+    else if (options && options.xLabelStep != null) requestedColJoinCount = Number(options.xLabelStep);
+    else if (options && options.step != null) requestedColJoinCount = Number(options.step);
+    else requestedColJoinCount = Number(this.options.colJoinCount);
+
+    if (!(requestedColJoinCount > 0)) requestedColJoinCount = 1;
+    requestedColJoinCount = Math.max(1, Math.floor(requestedColJoinCount));
+    this.options.colJoinCount = requestedColJoinCount;
+    this.options.xLabelStep = requestedColJoinCount;
+    this.options.step = requestedColJoinCount;
 
     this.options.xLabelOffset = Number(this.options.xLabelOffset);
     if (!Number.isFinite(this.options.xLabelOffset)) this.options.xLabelOffset = -6;
@@ -485,10 +490,10 @@
       this.dom.grid.appendChild(gridLine);
     }
 
-    // Tabel waktu + baris label X: merge berdasarkan xLabelStep.
-    // xLabelStep=1 -> setiap kolom terpisah.
-    // xLabelStep=2 -> setiap 2 kolom utama menjadi 1 cell tabel waktu.
-    var step = Number(this.options.xLabelStep);
+    // Tabel waktu + baris label X: merge berdasarkan colJoinCount.
+    // colJoinCount=1 -> setiap kolom terpisah.
+    // colJoinCount=2 -> setiap 2 kolom utama menjadi 1 cell tabel waktu.
+    var step = Number(this.options.colJoinCount);
     if (!(step > 0)) step = 1;
     step = Math.max(1, Math.floor(step));
 
@@ -875,7 +880,7 @@
     var o = this.options;
     var xHTML = '', yHTML = '';
 
-    var xStep = Number(o.xLabelStep);
+    var xStep = Number(o.colJoinCount);
     if (!(xStep > 0)) xStep = 1;
     xStep = Math.max(1, Math.floor(xStep));
 
@@ -2092,7 +2097,7 @@
       this._rebuildColumnGeometry();
     }
 
-    var step = Number(this.options.xLabelStep);
+    var step = Number(this.options.colJoinCount);
     if (!(step > 0)) step = 1;
     step = Math.max(1, Math.floor(step));
 
@@ -2127,18 +2132,27 @@
     return this.options.xLabelOffset;
   };
 
-  InteractiveGrid.prototype.setXLabelStep = function (step) {
-    step = Number(step);
-    if (!(step > 0)) throw new Error('InteractiveGrid.setXLabelStep: step harus lebih besar dari 0.');
-    step = Math.max(1, Math.floor(step));
-    this.options.xLabelStep = step;
-    this.options.step = step;
+  InteractiveGrid.prototype.setColJoinCount = function (count) {
+    count = Number(count);
+    if (!(count > 0)) throw new Error('InteractiveGrid.setColJoinCount: count harus lebih besar dari 0.');
+    count = Math.max(1, Math.floor(count));
+    this.options.colJoinCount = count;
+    this.options.xLabelStep = count;
+    this.options.step = count;
     this._renderLabels();
     return this;
   };
 
+  InteractiveGrid.prototype.getColJoinCount = function () {
+    return this.options.colJoinCount;
+  };
+
+  InteractiveGrid.prototype.setXLabelStep = function (step) {
+    return this.setColJoinCount(step);
+  };
+
   InteractiveGrid.prototype.getXLabelStep = function () {
-    return this.options.xLabelStep;
+    return this.getColJoinCount();
   };
 
   InteractiveGrid.prototype.setYLabelStep = function (step) {
@@ -2162,6 +2176,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.0.1';
+  InteractiveGrid.VERSION = '2.1.0';
   return InteractiveGrid;
 });
