@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.2.0**
+**Versi: 2.2.1**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -8,6 +8,7 @@ Fitur utama:
 
 - Tanda ditempatkan tepat pada **persimpangan garis grid**.
 - Setiap koordinat dapat berisi **●**, **X**, atau **● + X sekaligus**.
+- Popup pemilihan penanda memiliki tombol teks **Close** di kanan atas untuk menutup popup tanpa memilih atau menghapus tanda.
 - Koordinat yang dibuat berurutan otomatis dihubungkan menjadi garis grafik, termasuk grafik naik/turun.
 - Jika sebuah koordinat dihapus seluruhnya, garis otomatis menyambungkan koordinat sebelum dan sesudahnya.
 - Bisa menghapus hanya ● atau hanya X pada koordinat yang memiliki dua tanda.
@@ -576,6 +577,12 @@ grid.setData([
 ```
 
 Saat data diambil kembali dengan `getData()`, style khusus dinormalisasi ke dalam properti `styles`.
+
+## Menutup popup pemilihan penanda
+
+Popup **Tambah tanda** sekarang mempunyai tombol teks **Close** di kanan atas. Klik **Close** akan menutup popup tanpa mengubah data pada koordinat tersebut.
+
+Tombol ini tidak memengaruhi perilaku klik di luar popup yang sebelumnya juga dapat menutup menu.
 
 ## API
 
@@ -2546,7 +2553,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.2.0
+console.log(InteractiveGrid.VERSION); // 2.2.1
 ```
 
 ## Lisensi
@@ -2578,6 +2585,13 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.2.1
+- Menambahkan tombol teks **Close** di kanan atas popup pemilihan penanda.
+- Klik **Close** menjalankan `_hideMenu()` sehingga popup ditutup tanpa menambah atau menghapus tanda.
+- Tombol Close diberi `aria-label` dan focus style untuk aksesibilitas keyboard.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.2.0
 - Menambahkan properti `xLabels` untuk mengubah teks label sumbu X tanpa mengubah koordinat asli.

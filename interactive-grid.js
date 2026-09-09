@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.2.0
+/* InteractiveGrid v2.2.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -672,7 +672,10 @@
       '<div class="ig-interaction" aria-label="Area interaksi grafik"></div>' +
       '<div class="ig-hover-plus" aria-hidden="true"></div>' +
       '<div class="ig-menu" role="dialog" aria-label="Pilihan tanda">' +
-        '<div class="ig-menu-title">Tambah tanda</div>' +
+        '<div class="ig-menu-header">' +
+          '<div class="ig-menu-title">Tambah tanda</div>' +
+          '<button type="button" class="ig-menu-close" aria-label="Tutup popup">Close</button>' +
+        '</div>' +
         '<div class="ig-menu-section ig-add-section">' +
           '<button type="button" class="ig-choice" data-type="dot" title="Tambah titik bulat"><span class="ig-dot-preview"></span></button>' +
           '<button type="button" class="ig-choice" data-type="x" title="Tambah tanda X"><span class="ig-x-preview"></span></button>' +
@@ -1003,6 +1006,12 @@
     }, { passive: false });
 
     this._bind(d.menu, 'click', function (e) {
+      var close = e.target.closest('.ig-menu-close');
+      if (close) {
+        self._hideMenu();
+        return;
+      }
+
       var add = e.target.closest('[data-type]');
       if (add && self.pendingCell) {
         self.addPoint(self.pendingCell.x, self.pendingCell.y, add.getAttribute('data-type'));
@@ -2275,6 +2284,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.2.0';
+  InteractiveGrid.VERSION = '2.2.1';
   return InteractiveGrid;
 });
