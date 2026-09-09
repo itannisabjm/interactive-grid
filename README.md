@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.0.0**
+**Versi: 2.0.1**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -819,11 +819,18 @@ Jika:
 showTimePicker: false
 ```
 
-plugin menggunakan input teks biasa. Pengguna mengisi jam dengan keyboard, misalnya:
+plugin menggunakan input teks biasa. Pengguna mengisi jam dengan keyboard.
+
+Setelah **dua digit pertama** diketik, tanda `:` otomatis ditambahkan:
 
 ```text
-08:15
+0
+08:
+08:3
+08:30
 ```
+
+Jadi user cukup mengetik `0830` dan hasil akhirnya menjadi `08:30`. Saat Backspace/Delete digunakan, plugin tidak memaksa menambahkan `:` kembali sehingga nilai tetap mudah diedit.
 
 Saat input selesai (`blur` / `change`), nilai seperti:
 
@@ -2373,7 +2380,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.0.0
+console.log(InteractiveGrid.VERSION); // 2.0.1
 ```
 
 ## Lisensi
@@ -2405,6 +2412,15 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.0.1
+- Pada `showTimePicker: false`, tanda `:` otomatis ditambahkan setelah dua digit pertama.
+- Mengetik `08` langsung menjadi `08:`; melanjutkan `30` menghasilkan `08:30`.
+- Input/paste empat digit seperti `0830` otomatis menjadi `08:30`.
+- Backspace/Delete tetap dapat digunakan normal tanpa `:` dipaksa muncul kembali saat penghapusan.
+- Validasi akhir tetap menggunakan format `HH:MM` (`00:00` sampai `23:59`).
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.0.0
 - Setiap cell tabel **Waktu (Jam)** sekarang dapat diisi nilai jam.

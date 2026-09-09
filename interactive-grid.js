@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.0.0
+/* InteractiveGrid v2.0.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -345,6 +345,26 @@
     }
 
     return String(h).padStart(2, '0') + ':' + String(min).padStart(2, '0');
+  };
+
+  InteractiveGrid.prototype._formatManualTimeTyping = function (value, inputType) {
+    value = String(value == null ? '' : value);
+    var cleaned = value.replace(/[^0-9:]/g, '');
+
+    if (/^\d{3,4}$/.test(cleaned) && cleaned.indexOf(':') < 0) {
+      cleaned = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
+    }
+
+    var isDeleting =
+      inputType === 'deleteContentBackward' ||
+      inputType === 'deleteContentForward' ||
+      inputType === 'deleteByCut';
+
+    if (!isDeleting && /^\d{2}$/.test(cleaned)) {
+      cleaned += ':';
+    }
+
+    return cleaned.slice(0, 5);
   };
 
   InteractiveGrid.prototype._setTimeDataInternal = function (data) {
@@ -950,9 +970,14 @@
       if (!input) return;
 
       if (!self.options.showTimePicker) {
-        // Untuk mode manual, izinkan hanya digit dan ':' serta batasi 5 karakter.
-        var cleaned = String(input.value || '').replace(/[^0-9:]/g, '').slice(0, 5);
-        if (cleaned !== input.value) input.value = cleaned;
+        // Mode manual: ':' otomatis muncul setelah dua digit jam.
+        var formatted = self._formatManualTimeTyping(input.value, e.inputType);
+        if (formatted !== input.value) {
+          input.value = formatted;
+          try {
+            input.setSelectionRange(formatted.length, formatted.length);
+          } catch (ignore) {}
+        }
       }
     });
 
@@ -2137,6 +2162,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.0.0';
+  InteractiveGrid.VERSION = '2.0.1';
   return InteractiveGrid;
 });
