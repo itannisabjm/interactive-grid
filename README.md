@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.5.0**
+**Versi: 1.6.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -15,6 +15,7 @@ Fitur utama:
 - Penanda biasa/interaktif dapat diatur **warna umum (`markColor`), warna khusus dot (`dotColor`), warna khusus X (`xColor`), ukuran dot, ukuran X, dan ketebalan X**, secara global maupun per tanda.
 - Label angka sumbu X dan Y dapat diatur frekuensinya dengan `xLabelStep` dan `yLabelStep` tanpa mengubah jumlah kolom/baris atau koordinat data.
 - Mendukung satu atau lebih **teks vertikal di sebelah kiri sumbu Y**, dengan pengaturan teks, warna, ukuran font, font weight, font family, dan lebar area.
+- Lebar kolom dapat diatur secara global dengan `colWidth`, lalu dioverride per kolom melalui `columnsConfig` / `colWidths` / `columnWidths`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
 - Mendukung mouse dan sentuhan dasar.
@@ -49,6 +50,16 @@ Pastikan ketiga file berada dalam folder `interactive-grid`.
     const grid = new InteractiveGrid('#grafik', {
       columns: 17,
       rows: 11,
+
+      // default semua kolom
+      colWidth: 54,
+
+      // contoh override beberapa kolom
+      columnsConfig: {
+        3: { colWidth: 80 },
+        7: { colWidth: 100 }
+      },
+
       xAxisTitle: 'Waktu',
       xAxisSubtitle: '(Jam)',
       verticalTexts: [
@@ -731,6 +742,26 @@ localStorage.setItem('grafik', json);
 grid.fromJSON(localStorage.getItem('grafik'));
 ```
 
+### API lebar kolom
+
+```javascript
+grid.getColWidth();
+grid.setColWidth(width);
+
+grid.getColumnWidth(columnNumber);
+grid.getColumnWidths();
+
+grid.setColumnWidth(columnNumber, width);
+grid.resetColumnWidth(columnNumber);
+grid.setColumnWidths(config);
+
+grid.getColumnLayout();
+grid.setColumnLayout(layout);
+```
+
+Nomor kolom pada API `getColumnWidth()`, `setColumnWidth()`, dan `resetColumnWidth()` menggunakan **1-based indexing**.
+
+
 ### API vertical text
 
 ```javascript
@@ -812,7 +843,15 @@ const grid = new InteractiveGrid('#grafik', {
   verticalTextFontWeight: '600',
   verticalTextFontFamily: 'Arial, Helvetica, sans-serif',
 
-  cellWidth: 54,
+  colWidth: 54,
+  // cellWidth: 54, // alias kompatibilitas versi lama
+
+  // override per kolom (kolom dihitung mulai dari 1)
+  columnsConfig: {
+    3: { colWidth: 80 },
+    7: { colWidth: 100 }
+  },
+
   cellHeight: 42,
 
   xAxisTitle: 'Waktu',
@@ -1260,6 +1299,226 @@ grid.clearVerticalTexts();
 Perubahan jumlah teks atau `width` akan otomatis menghitung ulang ruang di sebelah kiri grafik, sehingga label Y, grid, overlay, titik, garis, dan area klik tetap sejajar.
 
 
+### Mengatur lebar kolom: `colWidth`
+
+`colWidth` adalah **lebar default setiap kolom** pada grid.
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+  colWidth: 54
+});
+```
+
+Dengan `columns: 17`, tersedia koordinat X `0..16`, sehingga secara visual ada **16 kolom/cell horizontal**:
+
+```text
+kolom 1  = antara X=0 dan X=1
+kolom 2  = antara X=1 dan X=2
+...
+kolom 16 = antara X=15 dan X=16
+```
+
+Jika tidak ada konfigurasi khusus, seluruh 16 kolom memakai `colWidth: 54`.
+
+#### Lebar khusus per kolom
+
+Gunakan `columnsConfig` untuk memberi lebar tertentu pada kolom tertentu:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 17,
+  rows: 11,
+
+  colWidth: 54,
+
+  columnsConfig: {
+    3: { colWidth: 80 },
+    7: { colWidth: 100 },
+    12: { colWidth: 40 }
+  }
+});
+```
+
+Artinya:
+
+```text
+kolom 1  = 54px
+kolom 2  = 54px
+kolom 3  = 80px   <- override
+kolom 4  = 54px
+...
+kolom 7  = 100px  <- override
+...
+kolom 12 = 40px   <- override
+...
+```
+
+Kolom yang tidak mempunyai `colWidth` khusus otomatis mengikuti nilai global `colWidth`.
+
+Nomor kolom pada `columnsConfig` adalah **1-based**.
+
+#### Format array
+
+`columnsConfig` juga dapat berupa array. Pada array, index `0` mewakili kolom 1:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 6, // X = 0..5, berarti ada 5 kolom/cell
+  colWidth: 54,
+
+  columnsConfig: [
+    { colWidth: 60 }, // kolom 1
+    null,             // kolom 2 -> 54
+    { colWidth: 90 }, // kolom 3
+    null,             // kolom 4 -> 54
+    { colWidth: 70 }  // kolom 5
+  ]
+});
+```
+
+#### Alias `colWidths` dan `columnWidths`
+
+Untuk konfigurasi yang lebih ringkas, nilai angka langsung juga didukung:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columns: 6,
+  colWidth: 54,
+
+  colWidths: [
+    60,  // kolom 1
+    54,  // kolom 2
+    90,  // kolom 3
+    54,  // kolom 4
+    70   // kolom 5
+  ]
+});
+```
+
+Atau object 1-based:
+
+```javascript
+columnWidths: {
+  3: 90,
+  5: 70
+}
+```
+
+Urutan prioritas saat constructor dibuat adalah:
+
+1. `colWidth` sebagai default.
+2. `colWidths`.
+3. `columnWidths`.
+4. `columnsConfig` sebagai override terakhir.
+
+Jika konfigurasi lama masih memakai:
+
+```javascript
+cellWidth: 54
+```
+
+plugin tetap menerimanya sebagai alias dari `colWidth`. Untuk kode baru disarankan menggunakan `colWidth`.
+
+#### Dampak ke koordinat dan garis
+
+Lebar kolom yang berbeda tidak mengubah nilai koordinat. Contoh:
+
+```javascript
+columnsConfig: {
+  3: { colWidth: 100 }
+}
+```
+
+hanya membuat jarak visual antara X=2 dan X=3 lebih lebar.
+
+Semua bagian plugin akan ikut menyesuaikan otomatis:
+
+- garis vertikal grid;
+- label angka X;
+- bagian kotak `Waktu`;
+- posisi marker ● dan X;
+- hover/klik mouse;
+- permanent line;
+- garis penghubung antar titik;
+- posisi teks permanent line.
+
+#### API lebar kolom
+
+Mengubah default global:
+
+```javascript
+grid.setColWidth(60);
+```
+
+Membaca default global:
+
+```javascript
+grid.getColWidth();
+```
+
+Mengatur satu kolom:
+
+```javascript
+grid.setColumnWidth(3, 90);
+```
+
+Membaca satu kolom:
+
+```javascript
+grid.getColumnWidth(3);
+```
+
+Mengambil seluruh lebar aktual:
+
+```javascript
+const widths = grid.getColumnWidths();
+// contoh: [54, 54, 90, 54, ...]
+```
+
+Mengembalikan kolom tertentu ke default `colWidth`:
+
+```javascript
+grid.resetColumnWidth(3);
+```
+
+Mengganti semua override sekaligus:
+
+```javascript
+grid.setColumnWidths({
+  2: { colWidth: 70 },
+  5: { colWidth: 100 }
+});
+```
+
+Mengambil konfigurasi layout kolom:
+
+```javascript
+const layout = grid.getColumnLayout();
+```
+
+Contoh hasil:
+
+```javascript
+{
+  colWidth: 54,
+  columnsConfig: {
+    2: { colWidth: 70 },
+    5: { colWidth: 100 }
+  }
+}
+```
+
+Memuat kembali:
+
+```javascript
+grid.setColumnLayout(layout);
+```
+
+`getAllData()` / `toFullJSON()` juga menyertakan `columnLayout`, sehingga konfigurasi lebar kolom dapat ikut disimpan apabila diperlukan.
+
+
 ### Arti `columns` dan `rows`
 
 `columns: 17` berarti tersedia 17 titik X: `0..16`.
@@ -1349,7 +1608,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.5.0
+console.log(InteractiveGrid.VERSION); // 1.6.0
 ```
 
 ## Lisensi
@@ -1381,6 +1640,17 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v1.6.0
+- Menambahkan `colWidth` sebagai lebar default kolom.
+- `cellWidth` tetap didukung sebagai alias kompatibilitas versi lama.
+- Menambahkan lebar per kolom melalui `columnsConfig`, `colWidths`, dan `columnWidths`.
+- `columnsConfig` mendukung object 1-based maupun array; setiap item dapat memiliki `{ colWidth }`.
+- Grid vertikal, label X, area `Waktu`, koordinat mouse/touch, marker, garis biasa, dan permanent line sekarang memakai posisi X kumulatif sehingga lebar setiap kolom boleh berbeda.
+- Menambahkan API `getColWidth()`, `setColWidth()`, `getColumnWidth()`, `getColumnWidths()`, `setColumnWidth()`, `resetColumnWidth()`, `setColumnWidths()`, `getColumnLayout()`, dan `setColumnLayout()`.
+- `getAllData()` / `toFullJSON()` sekarang juga menyertakan `columnLayout`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v1.5.0
 - Menambahkan `verticalTexts` untuk menampilkan satu atau lebih teks vertikal di sebelah kiri label sumbu Y.
