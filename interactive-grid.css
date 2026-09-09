@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.9.1 - framework agnostic */
+/* InteractiveGrid v1.9.2 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -281,7 +281,15 @@
 .ig-x-preview::before { transform:rotate(45deg); }
 .ig-x-preview::after { transform:rotate(-45deg); }
 
-.ig-status { margin-top:8px; font-size:12px; color:#555; }
+.ig-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  margin-left: 4px;
+  font-size: 12px;
+  color: #555;
+  white-space: nowrap;
+}
 .ig-hidden { display:none !important; }
 
 @media (max-width: 800px) {

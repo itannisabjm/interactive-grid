@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.9.1
+/* InteractiveGrid v1.9.2
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -492,7 +492,8 @@
     toolbar.className = 'ig-toolbar' + (o.showToolbar ? '' : ' ig-hidden');
     toolbar.innerHTML =
       '<button type="button" class="ig-undo">Undo</button>' +
-      '<button type="button" class="ig-clear">Hapus Semua</button>';
+      '<button type="button" class="ig-clear">Hapus Semua</button>' +
+      '<span class="ig-status' + (o.showStatus ? '' : ' ig-hidden') + '" aria-live="polite"></span>';
 
     var scroll = document.createElement('div');
     scroll.className = 'ig-scroll';
@@ -524,12 +525,8 @@
         '</div>' +
       '</div>';
 
-    var status = document.createElement('div');
-    status.className = 'ig-status' + (o.showStatus ? '' : ' ig-hidden');
-
     this.el.appendChild(toolbar);
     this.el.appendChild(scroll);
-    this.el.appendChild(status);
 
     this.dom = {
       toolbar: toolbar,
@@ -547,7 +544,7 @@
       hoverPlus: chart.querySelector('.ig-hover-plus'),
       menu: chart.querySelector('.ig-menu'),
       deleteSection: chart.querySelector('.ig-delete-section'),
-      status: status
+      status: toolbar.querySelector('.ig-status')
     };
 
     if (!o.showUndo) this.dom.undo.classList.add('ig-hidden');
@@ -1328,7 +1325,8 @@
       columnLayout: this.getColumnLayout(),
       rowLayout: this.getRowLayout(),
       viewConfig: {
-        showTimeTable: !!this.options.showTimeTable
+        showTimeTable: !!this.options.showTimeTable,
+        showStatus: !!this.options.showStatus
       }
     };
   };
@@ -1341,6 +1339,9 @@
     if (state.rowLayout != null) this.setRowLayout(state.rowLayout);
     if (state.viewConfig && state.viewConfig.showTimeTable != null) {
       this.setShowTimeTable(state.viewConfig.showTimeTable);
+    }
+    if (state.viewConfig && state.viewConfig.showStatus != null) {
+      this.setShowStatus(state.viewConfig.showStatus);
     }
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
@@ -1751,6 +1752,18 @@
     return this;
   };
 
+  InteractiveGrid.prototype.setShowStatus = function (show) {
+    this.options.showStatus = !!show;
+    if (this.dom && this.dom.status) {
+      this.dom.status.classList.toggle('ig-hidden', !this.options.showStatus);
+    }
+    return this;
+  };
+
+  InteractiveGrid.prototype.getShowStatus = function () {
+    return !!this.options.showStatus;
+  };
+
   InteractiveGrid.prototype.setShowTimeTable = function (show) {
     this.options.showTimeTable = !!show;
     this._layout();
@@ -1839,6 +1852,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.9.1';
+  InteractiveGrid.VERSION = '1.9.2';
   return InteractiveGrid;
 });

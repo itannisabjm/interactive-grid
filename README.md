@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 1.9.1**
+**Versi: 1.9.2**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -12,6 +12,7 @@ Fitur utama:
 - Jika sebuah koordinat dihapus seluruhnya, garis otomatis menyambungkan koordinat sebelum dan sesudahnya.
 - Bisa menghapus hanya ● atau hanya X pada koordinat yang memiliki dua tanda.
 - API untuk tambah/hapus/get/set/clear/undo/JSON.
+- Keterangan jumlah tanda/koordinat tampil sejajar di sebelah kanan tombol **Hapus Semua** dan dapat diatur dengan `showStatus`.
 - Penanda biasa/interaktif dapat diatur **warna umum (`markColor`), warna khusus dot (`dotColor`), warna khusus X (`xColor`), ukuran dot, ukuran X, dan ketebalan X**, secara global maupun per tanda.
 - Label angka sumbu X dan Y dapat diatur frekuensinya dengan `xLabelStep` dan `yLabelStep` tanpa mengubah jumlah kolom/baris atau koordinat data.
 - Mendukung satu atau lebih **teks vertikal di sebelah kiri sumbu Y**, dengan pengaturan teks, warna, ukuran font, font weight, font family, dan lebar area.
@@ -763,6 +764,55 @@ const offset = grid.getXLabelOffset();
 
 Nilai negatif menggeser label ke kiri; nilai positif ke kanan.
 
+### Keterangan jumlah tanda / koordinat: `showStatus`
+
+Keterangan seperti:
+
+```text
+3 tanda pada 2 koordinat.
+```
+
+sekarang ditempatkan **di sebelah kanan tombol `Hapus Semua`** dan sejajar secara vertikal dengan tombol toolbar.
+
+Default:
+
+```javascript
+showStatus: true
+```
+
+Contoh:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  showToolbar: true,
+  showStatus: true
+});
+```
+
+Jika tidak ingin menampilkan keterangan:
+
+```javascript
+showStatus: false
+```
+
+Status akan tetap diperbarui oleh plugin ketika titik ditambah, dihapus, di-load melalui `setData()`, di-undo, atau di-clear; hanya tampilannya yang disembunyikan.
+
+Dapat diubah setelah grid dibuat:
+
+```javascript
+grid.setShowStatus(false); // sembunyikan
+grid.setShowStatus(true);  // tampilkan kembali
+```
+
+Membaca status pengaturan:
+
+```javascript
+const visible = grid.getShowStatus();
+```
+
+> Jika `showToolbar: false`, seluruh toolbar termasuk tombol dan keterangan status ikut tersembunyi.
+
+
 ### API tabel waktu
 
 ```javascript
@@ -936,7 +986,7 @@ const grid = new InteractiveGrid('#grafik', {
   showTimeTable: true,
 
   showToolbar: true,
-  showStatus: true,
+  showStatus: true, // tampilkan keterangan jumlah tanda/koordinat di toolbar
   showUndo: true,
   showClear: true,
 
@@ -2112,7 +2162,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 1.9.1
+console.log(InteractiveGrid.VERSION); // 1.9.2
 ```
 
 ## Lisensi
@@ -2144,6 +2194,15 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v1.9.2
+- Memindahkan keterangan jumlah tanda/koordinat ke toolbar, tepat di sebelah kanan tombol **Hapus Semua**.
+- Keterangan status sekarang sejajar secara vertikal dengan tombol `Undo` dan `Hapus Semua`.
+- `showStatus: true/false` tetap menjadi properti untuk menampilkan atau menyembunyikan keterangan.
+- Menambahkan API `setShowStatus()` dan `getShowStatus()`.
+- `getAllData()` / `toFullJSON()` sekarang menyertakan `viewConfig.showStatus`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v1.9.1
 - Menggeser label angka sumbu X sedikit ke kiri secara default agar tidak tertutup garis vertikal grid.
