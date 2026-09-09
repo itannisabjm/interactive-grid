@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.6.0
+/* InteractiveGrid v1.7.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -48,7 +48,20 @@
     colWidths: null,
     columnWidths: null,
 
+    // Tinggi default setiap baris/cell vertikal.
+    // `cellHeight` tetap didukung sebagai alias kompatibilitas versi lama.
+    rowWidth: 42,
     cellHeight: 42,
+
+    // Override tinggi per baris. Baris dihitung 1-based dari bawah:
+    // baris 1 = area antara Y pertama dan Y kedua (mis. Y=0 ke Y=1).
+    // Format yang didukung:
+    // rowsConfig: { 2: { rowWidth: 60 }, 5: { rowWidth: 80 } }
+    // rowsConfig: [null, { rowWidth: 60 }, ...]
+    // rowWidths juga didukung sebagai alias ringkas.
+    rowsConfig: null,
+    rowWidths: null,
+
     xAxisTitle: 'Waktu',
     xAxisSubtitle: '(Jam)',
     showToolbar: true,
@@ -184,6 +197,21 @@
     this._loadColumnWidthOverrides(this.options.columnWidths);
     this._loadColumnWidthOverrides(this.options.columnsConfig);
 
+    // rowWidth adalah nama utama untuk tinggi default baris.
+    // Jika rowWidth tidak diberikan tetapi cellHeight lama diberikan, gunakan cellHeight.
+    var requestedRowWidth = null;
+    if (options && options.rowWidth != null) requestedRowWidth = Number(options.rowWidth);
+    else if (options && options.cellHeight != null) requestedRowWidth = Number(options.cellHeight);
+    else requestedRowWidth = Number(this.options.rowWidth);
+
+    if (!(requestedRowWidth > 0)) requestedRowWidth = 42;
+    this.options.rowWidth = requestedRowWidth;
+    this.options.cellHeight = requestedRowWidth; // alias kompatibilitas
+
+    this._rowWidthOverrides = {};
+    this._loadRowWidthOverrides(this.options.rowWidths);
+    this._loadRowWidthOverrides(this.options.rowsConfig);
+
     // Alias opsi lama -> nama baru, tanpa merusak implementasi lama.
     if (options && options.dotSize == null && options.markSize != null) this.options.dotSize = Number(options.markSize);
     if (options && options.xSize == null && options.xMarkSize != null) this.options.xSize = Number(options.xMarkSize);
@@ -305,12 +333,112 @@
     return this;
   };
 
+  InteractiveGrid.prototype._rowNumberFromKey = function (key, isArray) {
+    var n = Number(key);
+    if (!Number.isInteger(n)) return null;
+    // Array: index 0 = baris 1. Object: key 1 = baris 1.
+    return isArray ? (n + 1) : n;
+  };
+
+  InteractiveGrid.prototype._extractRowWidth = function (value) {
+    if (value != null && typeof value === 'object' && !Array.isArray(value)) {
+      value = value.rowWidth;
+    }
+    value = Number(value);
+    return value > 0 ? value : null;
+  };
+
+  InteractiveGrid.prototype._loadRowWidthOverrides = function (source) {
+    if (source == null) return;
+
+    var self = this;
+    var maxRow = Math.max(0, Number(this.options.rows) - 1);
+
+    if (Array.isArray(source)) {
+      source.forEach(function (value, index) {
+        var rowNumber = self._rowNumberFromKey(index, true);
+        var height = self._extractRowWidth(value);
+        if (rowNumber >= 1 && rowNumber <= maxRow && height != null) {
+          self._rowWidthOverrides[rowNumber] = height;
+        }
+      });
+      return;
+    }
+
+    if (typeof source === 'object') {
+      Object.keys(source).forEach(function (key) {
+        var rowNumber = self._rowNumberFromKey(key, false);
+        var height = self._extractRowWidth(source[key]);
+        if (rowNumber >= 1 && rowNumber <= maxRow && height != null) {
+          self._rowWidthOverrides[rowNumber] = height;
+        }
+      });
+    }
+  };
+
+  InteractiveGrid.prototype._rebuildRowGeometry = function () {
+    var o = this.options;
+    var count = Math.max(0, o.rows - 1);
+    var heights = [];
+    var cumulative = [0];
+    var total = 0;
+
+    // row 1 = antara Y=0 dan Y=1, sehingga cumulative dihitung dari bawah.
+    for (var i = 1; i <= count; i++) {
+      var height = Number(this._rowWidthOverrides[i]);
+      if (!(height > 0)) height = Number(o.rowWidth);
+      if (!(height > 0)) height = 42;
+
+      heights.push(height);
+      total += height;
+      cumulative.push(total);
+    }
+
+    this._rowHeights = heights;
+    this._yCumulative = cumulative;
+    this._gridHeight = total;
+
+    // Posisi layar untuk setiap koordinat Y, dari atas ke bawah.
+    this._yPositions = [];
+    for (var y = 0; y < o.rows; y++) {
+      this._yPositions[y] = total - cumulative[y];
+    }
+  };
+
+  InteractiveGrid.prototype._renderRowGuides = function () {
+    if (!this.dom || !this.dom.grid) return;
+
+    // Hapus hanya horizontal guide yang dibuat JS; vertical guide dipertahankan.
+    var old = this.dom.grid.querySelectorAll('.ig-grid-hline');
+    for (var i = 0; i < old.length; i++) old[i].remove();
+
+    // Batas paling atas/bawah ditangani border CSS.
+    for (var y = 1; y < this.options.rows - 1; y++) {
+      var py = this._yPositions[y];
+
+      var line = document.createElement('span');
+      line.className = 'ig-grid-hline';
+      line.style.top = py + 'px';
+      this.dom.grid.appendChild(line);
+    }
+  };
+
+  InteractiveGrid.prototype._refreshRowLayout = function () {
+    if (!this.dom) return this;
+    this.el.style.setProperty('--ig-cell-h', this.options.rowWidth + 'px');
+    this._layout();
+    this._renderLabels();
+    this._renderVerticalTexts();
+    this.render();
+    return this;
+  };
+
   InteractiveGrid.prototype._build = function () {
     var o = this.options;
     this.el.innerHTML = '';
     this.el.classList.add('ig-root');
     this.el.style.setProperty('--ig-cell-w', o.colWidth + 'px');
-    this.el.style.setProperty('--ig-cell-h', o.cellHeight + 'px');
+    this.el.style.setProperty('--ig-cell-h', o.rowWidth + 'px');
     this.el.style.setProperty('--ig-line', o.lineColor);
     this.el.style.setProperty('--ig-mark', o.markColor);
     this.el.style.setProperty('--ig-dot-color', (o.dotColor != null && String(o.dotColor).trim()) ? o.dotColor : o.markColor);
@@ -395,16 +523,21 @@
     var gridLeft = verticalTextW + yLabelW;
 
     this._rebuildColumnGeometry();
+    this._rebuildRowGeometry();
 
-    // Ruang ekstra di atas mencegah label Y tertinggi (mis. 10) terpotong.
+    // Ruang ekstra di atas mengikuti setengah tinggi baris teratas agar label Y tertinggi tidak terpotong.
     // Ruang di kanan mengikuti setengah lebar kolom terakhir agar label X terakhir tetap terlihat.
-    var topPad = Math.ceil(o.cellHeight / 2) + 4;
+    var topRowHeight = this._rowHeights.length
+      ? this._rowHeights[this._rowHeights.length - 1]
+      : o.rowWidth;
+    var topPad = Math.ceil(topRowHeight / 2) + 4;
+
     var lastColWidth = this._columnWidths.length
       ? this._columnWidths[this._columnWidths.length - 1]
       : o.colWidth;
     var rightPad = Math.ceil(lastColWidth / 2) + 4;
     var gridW = this._gridWidth;
-    var gridH = (o.rows - 1) * o.cellHeight;
+    var gridH = this._gridHeight;
     var chartW = gridLeft + gridW + rightPad;
     var chartH = topPad + gridH + axisH + timeH;
 
@@ -442,8 +575,7 @@
 
     this.dom.yLabels.style.top = topPad + 'px';
     this.dom.yLabels.style.height = gridH + 'px';
-    this.dom.yLabels.style.gridTemplateRows = 'repeat(' + o.rows + ', ' + o.cellHeight + 'px)';
-    this.dom.yLabels.style.transform = 'translateY(-' + (o.cellHeight / 2) + 'px)';
+    this.dom.yLabels.style.transform = 'none';
 
     this.dom.xLabels.style.top = (topPad + gridH) + 'px';
     this.dom.xLabels.style.width = gridW + 'px';
@@ -457,6 +589,7 @@
     this.dom.timeCells.style.height = timeH + 'px';
 
     this._renderColumnGuides();
+    this._renderRowGuides();
   };
 
   InteractiveGrid.prototype._normalizeVerticalText = function (item, fallbackId) {
@@ -574,11 +707,17 @@
         '</div>';
     }
 
-    // Loop Y dirender dari nilai tertinggi ke terendah agar sesuai posisi visual sumbu Y.
-    // Interval tetap dihitung dari yStart, sama seperti xLabelStep dihitung dari xStart.
+    // Posisi label Y mengikuti posisi kumulatif tinggi masing-masing baris.
+    // Interval tetap dihitung dari yStart.
     for (var y = o.rows - 1; y >= 0; y--) {
       var showYLabel = (y % yStep) === 0;
-      yHTML += '<div>' + (showYLabel ? this._escape(o.yStart + y) : '') + '</div>';
+      var top = this._yPositions && this._yPositions[y] != null
+        ? this._yPositions[y]
+        : (o.rows - 1 - y) * o.rowWidth;
+
+      yHTML += '<div style="top:' + top + 'px">' +
+        (showYLabel ? this._escape(o.yStart + y) : '') +
+        '</div>';
     }
 
     this.dom.xLabels.innerHTML = xHTML;
@@ -658,9 +797,13 @@
       ? this._xPositions[internalX]
       : internalX * this.options.colWidth;
 
+    var py = this._yPositions && this._yPositions[internalY] != null
+      ? this._yPositions[internalY]
+      : (this.options.rows - 1 - internalY) * this.options.rowWidth;
+
     return {
       px: px,
-      py: (this.options.rows - 1 - internalY) * this.options.cellHeight
+      py: py
     };
   };
 
@@ -681,8 +824,18 @@
     }
     ix = Math.max(0, Math.min(this.options.columns - 1, ix));
 
-    var screenRow = Math.max(0, Math.min(this.options.rows - 1, Math.round(ly / this.options.cellHeight)));
-    var iy = this.options.rows - 1 - screenRow;
+    var iy = 0;
+    var bestYDistance = Infinity;
+    var yPositions = this._yPositions || [0];
+    for (var yi = 0; yi < yPositions.length; yi++) {
+      var yDistance = Math.abs(ly - yPositions[yi]);
+      if (yDistance < bestYDistance) {
+        bestYDistance = yDistance;
+        iy = yi;
+      }
+    }
+    iy = Math.max(0, Math.min(this.options.rows - 1, iy));
+
     return this._publicXY(ix, iy);
   };
 
@@ -1124,7 +1277,8 @@
       points: this.getData(),
       permanent: this.getPermanentData(),
       verticalTexts: this.getVerticalTexts(),
-      columnLayout: this.getColumnLayout()
+      columnLayout: this.getColumnLayout(),
+      rowLayout: this.getRowLayout()
     };
   };
 
@@ -1133,6 +1287,7 @@
     this.setPermanentData(Array.isArray(state.permanent) ? state.permanent : []);
     if (state.verticalTexts != null) this.setVerticalTexts(state.verticalTexts);
     if (state.columnLayout != null) this.setColumnLayout(state.columnLayout);
+    if (state.rowLayout != null) this.setRowLayout(state.rowLayout);
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
   };
@@ -1326,6 +1481,111 @@
     return this._refreshColumnLayout();
   };
 
+  InteractiveGrid.prototype.getRowWidth = function () {
+    return this.options.rowWidth;
+  };
+
+  InteractiveGrid.prototype.setRowWidth = function (height) {
+    height = Number(height);
+    if (!(height > 0)) {
+      throw new Error('InteractiveGrid.setRowWidth: height harus lebih besar dari 0.');
+    }
+
+    this.options.rowWidth = height;
+    this.options.cellHeight = height;
+    return this._refreshRowLayout();
+  };
+
+  InteractiveGrid.prototype.getRowHeight = function (rowNumber) {
+    rowNumber = Number(rowNumber);
+    if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > this.options.rows - 1) {
+      return null;
+    }
+
+    if (!this._rowHeights || this._rowHeights.length !== this.options.rows - 1) {
+      this._rebuildRowGeometry();
+    }
+    return this._rowHeights[rowNumber - 1];
+  };
+
+  // Alias nama yang konsisten dengan properti rowWidth.
+  InteractiveGrid.prototype.getRowWidthAt = InteractiveGrid.prototype.getRowHeight;
+
+  InteractiveGrid.prototype.getRowHeights = function () {
+    if (!this._rowHeights || this._rowHeights.length !== this.options.rows - 1) {
+      this._rebuildRowGeometry();
+    }
+    return this._rowHeights.slice();
+  };
+
+  InteractiveGrid.prototype.getRowWidths = InteractiveGrid.prototype.getRowHeights;
+
+  InteractiveGrid.prototype.setRowHeight = function (rowNumber, height) {
+    rowNumber = Number(rowNumber);
+    height = Number(height);
+
+    if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > this.options.rows - 1) {
+      throw new Error('InteractiveGrid.setRowHeight: nomor baris harus 1 sampai ' + (this.options.rows - 1) + '.');
+    }
+    if (!(height > 0)) {
+      throw new Error('InteractiveGrid.setRowHeight: height harus lebih besar dari 0.');
+    }
+
+    this._rowWidthOverrides[rowNumber] = height;
+    return this._refreshRowLayout();
+  };
+
+  InteractiveGrid.prototype.setRowWidthAt = InteractiveGrid.prototype.setRowHeight;
+
+  InteractiveGrid.prototype.resetRowHeight = function (rowNumber) {
+    rowNumber = Number(rowNumber);
+    if (!Number.isInteger(rowNumber) || rowNumber < 1 || rowNumber > this.options.rows - 1) {
+      throw new Error('InteractiveGrid.resetRowHeight: nomor baris harus 1 sampai ' + (this.options.rows - 1) + '.');
+    }
+
+    delete this._rowWidthOverrides[rowNumber];
+    return this._refreshRowLayout();
+  };
+
+  InteractiveGrid.prototype.resetRowWidthAt = InteractiveGrid.prototype.resetRowHeight;
+
+  InteractiveGrid.prototype.setRowWidths = function (config) {
+    this._rowWidthOverrides = {};
+    this._loadRowWidthOverrides(config);
+    return this._refreshRowLayout();
+  };
+
+  InteractiveGrid.prototype.getRowLayout = function () {
+    var config = {};
+    Object.keys(this._rowWidthOverrides).forEach(function (key) {
+      config[key] = { rowWidth: Number(this._rowWidthOverrides[key]) };
+    }, this);
+
+    return {
+      rowWidth: this.options.rowWidth,
+      rowsConfig: config
+    };
+  };
+
+  InteractiveGrid.prototype.setRowLayout = function (layout) {
+    layout = layout || {};
+
+    if (layout.rowWidth != null) {
+      var height = Number(layout.rowWidth);
+      if (!(height > 0)) {
+        throw new Error('InteractiveGrid.setRowLayout: rowWidth harus lebih besar dari 0.');
+      }
+      this.options.rowWidth = height;
+      this.options.cellHeight = height;
+    }
+
+    this._rowWidthOverrides = {};
+    this._loadRowWidthOverrides(layout.rowWidths);
+    this._loadRowWidthOverrides(layout.rowsConfig);
+
+    return this._refreshRowLayout();
+  };
+
   InteractiveGrid.prototype.getVerticalTexts = function () {
     return cloneVerticalTexts(this.verticalTexts);
   };
@@ -1442,6 +1702,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.6.0';
+  InteractiveGrid.VERSION = '1.7.0';
   return InteractiveGrid;
 });
