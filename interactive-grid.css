@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.5.0 - framework agnostic */
+/* InteractiveGrid v1.6.0 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -53,16 +53,30 @@
   left: var(--ig-grid-left);
   top: 0;
   background-color: var(--ig-bg);
+  /* Garis horizontal tetap seragam. Garis vertikal dirender per kolom oleh JS
+     agar setiap kolom dapat memiliki lebar yang berbeda. */
   background-image:
-    linear-gradient(to right, var(--ig-grid-color) 1px, transparent 1px),
     linear-gradient(to bottom, var(--ig-grid-color) 1px, transparent 1px);
-  background-size: var(--ig-cell-w) var(--ig-cell-h);
+  background-size: 100% var(--ig-cell-h);
   border-top: 1px solid var(--ig-grid-color);
   border-left: 1px solid var(--ig-grid-color);
   /* Pastikan garis batas koordinat terakhir (kanan dan bawah) selalu terlihat. */
   border-right: 1px solid var(--ig-grid-color);
   border-bottom: 1px solid var(--ig-grid-color);
 }
+
+.ig-grid-vline,
+.ig-time-vline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 1px solid var(--ig-grid-color);
+  pointer-events: none;
+}
+
+.ig-grid-vline { z-index: 1; }
+.ig-time-vline { z-index: 1; }
 
 .ig-vertical-texts {
   position: absolute;
@@ -107,11 +121,20 @@
 
 .ig-x-labels {
   left: var(--ig-grid-left);
-  display: grid;
+  display: block;
   text-align: center;
   font-size: 13px;
 }
-.ig-x-labels > div { display:flex; align-items:flex-start; justify-content:center; padding-top:5px; }
+.ig-x-labels > div {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 5px;
+  white-space: nowrap;
+}
 
 .ig-time-label {
   left: var(--ig-vertical-w);
@@ -129,9 +152,10 @@
   left: var(--ig-grid-left);
   border-top: 1px solid var(--ig-grid-color);
   border-bottom: 1px solid var(--ig-grid-color);
+  border-left: 1px solid var(--ig-grid-color);
   border-right: 1px solid var(--ig-grid-color);
-  background-image: linear-gradient(to right, var(--ig-grid-color) 1px, transparent 1px);
-  background-size: var(--ig-cell-w) 100%;
+  background: var(--ig-bg);
+  overflow: visible;
 }
 
 .ig-overlay {
@@ -233,5 +257,5 @@
 .ig-hidden { display:none !important; }
 
 @media (max-width: 800px) {
-  .ig-root { --ig-cell-w: 44px; --ig-cell-h: 36px; }
+  .ig-root { --ig-cell-h: 36px; }
 }

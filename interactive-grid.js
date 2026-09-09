@@ -1,4 +1,4 @@
-/* InteractiveGrid v1.5.0
+/* InteractiveGrid v1.6.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -33,7 +33,21 @@
     verticalTextFontWeight: '600',
     verticalTextFontFamily: 'Arial, Helvetica, sans-serif',
 
+    // Lebar default setiap kolom/cell horizontal.
+    // `cellWidth` tetap didukung sebagai alias kompatibilitas versi lama.
+    colWidth: 54,
     cellWidth: 54,
+
+    // Override lebar per kolom. Kolom dihitung 1-based:
+    // kolom 1 = area antara X pertama dan X kedua.
+    // Format yang didukung:
+    // columnsConfig: { 2: { colWidth: 80 }, 5: { colWidth: 100 } }
+    // columnsConfig: [null, { colWidth: 80 }, ...]
+    // colWidths / columnWidths juga didukung sebagai alias ringkas.
+    columnsConfig: null,
+    colWidths: null,
+    columnWidths: null,
+
     cellHeight: 42,
     xAxisTitle: 'Waktu',
     xAxisSubtitle: '(Jam)',
@@ -154,6 +168,22 @@
     if (!(this.options.yLabelStep > 0)) this.options.yLabelStep = 1;
     this.options.yLabelStep = Math.max(1, Math.floor(this.options.yLabelStep));
 
+    // colWidth adalah nama utama untuk lebar default kolom.
+    // Jika colWidth tidak diberikan tetapi cellWidth lama diberikan, gunakan cellWidth.
+    var requestedColWidth = null;
+    if (options && options.colWidth != null) requestedColWidth = Number(options.colWidth);
+    else if (options && options.cellWidth != null) requestedColWidth = Number(options.cellWidth);
+    else requestedColWidth = Number(this.options.colWidth);
+
+    if (!(requestedColWidth > 0)) requestedColWidth = 54;
+    this.options.colWidth = requestedColWidth;
+    this.options.cellWidth = requestedColWidth; // alias kompatibilitas
+
+    this._columnWidthOverrides = {};
+    this._loadColumnWidthOverrides(this.options.colWidths);
+    this._loadColumnWidthOverrides(this.options.columnWidths);
+    this._loadColumnWidthOverrides(this.options.columnsConfig);
+
     // Alias opsi lama -> nama baru, tanpa merusak implementasi lama.
     if (options && options.dotSize == null && options.markSize != null) this.options.dotSize = Number(options.markSize);
     if (options && options.xSize == null && options.xMarkSize != null) this.options.xSize = Number(options.xMarkSize);
@@ -177,11 +207,109 @@
     this.render();
   }
 
+  InteractiveGrid.prototype._columnNumberFromKey = function (key, isArray) {
+    var n = Number(key);
+    if (!Number.isInteger(n)) return null;
+    // Array: index 0 = kolom 1. Object: key 1 = kolom 1.
+    return isArray ? (n + 1) : n;
+  };
+
+  InteractiveGrid.prototype._extractColumnWidth = function (value) {
+    if (value != null && typeof value === 'object' && !Array.isArray(value)) {
+      value = value.colWidth;
+    }
+    value = Number(value);
+    return value > 0 ? value : null;
+  };
+
+  InteractiveGrid.prototype._loadColumnWidthOverrides = function (source) {
+    if (source == null) return;
+
+    var self = this;
+    var maxColumn = Math.max(0, Number(this.options.columns) - 1);
+
+    if (Array.isArray(source)) {
+      source.forEach(function (value, index) {
+        var columnNumber = self._columnNumberFromKey(index, true);
+        var width = self._extractColumnWidth(value);
+        if (columnNumber >= 1 && columnNumber <= maxColumn && width != null) {
+          self._columnWidthOverrides[columnNumber] = width;
+        }
+      });
+      return;
+    }
+
+    if (typeof source === 'object') {
+      Object.keys(source).forEach(function (key) {
+        var columnNumber = self._columnNumberFromKey(key, false);
+        var width = self._extractColumnWidth(source[key]);
+        if (columnNumber >= 1 && columnNumber <= maxColumn && width != null) {
+          self._columnWidthOverrides[columnNumber] = width;
+        }
+      });
+    }
+  };
+
+  InteractiveGrid.prototype._rebuildColumnGeometry = function () {
+    var o = this.options;
+    var count = Math.max(0, o.columns - 1);
+    var widths = [];
+    var positions = [0];
+    var total = 0;
+
+    for (var i = 1; i <= count; i++) {
+      var width = Number(this._columnWidthOverrides[i]);
+      if (!(width > 0)) width = Number(o.colWidth);
+      if (!(width > 0)) width = 54;
+
+      widths.push(width);
+      total += width;
+      positions.push(total);
+    }
+
+    this._columnWidths = widths;
+    this._xPositions = positions;
+    this._gridWidth = total;
+  };
+
+  InteractiveGrid.prototype._renderColumnGuides = function () {
+    if (!this.dom || !this.dom.grid || !this.dom.timeCells) return;
+
+    this.dom.grid.innerHTML = '';
+    this.dom.timeCells.innerHTML = '';
+
+    // Batas paling kiri/kanan ditangani oleh border CSS.
+    // Di sini hanya gambar garis vertikal internal.
+    for (var i = 1; i < this.options.columns - 1; i++) {
+      var x = this._xPositions[i];
+
+      var gridLine = document.createElement('span');
+      gridLine.className = 'ig-grid-vline';
+      gridLine.style.left = x + 'px';
+      this.dom.grid.appendChild(gridLine);
+
+      var timeLine = document.createElement('span');
+      timeLine.className = 'ig-time-vline';
+      timeLine.style.left = x + 'px';
+      this.dom.timeCells.appendChild(timeLine);
+    }
+  };
+
+  InteractiveGrid.prototype._refreshColumnLayout = function () {
+    if (!this.dom) return this;
+    this.el.style.setProperty('--ig-cell-w', this.options.colWidth + 'px');
+    this._layout();
+    this._renderLabels();
+    this._renderVerticalTexts();
+    this.render();
+    return this;
+  };
+
   InteractiveGrid.prototype._build = function () {
     var o = this.options;
     this.el.innerHTML = '';
     this.el.classList.add('ig-root');
-    this.el.style.setProperty('--ig-cell-w', o.cellWidth + 'px');
+    this.el.style.setProperty('--ig-cell-w', o.colWidth + 'px');
     this.el.style.setProperty('--ig-cell-h', o.cellHeight + 'px');
     this.el.style.setProperty('--ig-line', o.lineColor);
     this.el.style.setProperty('--ig-mark', o.markColor);
@@ -266,11 +394,16 @@
     var verticalTextW = this._getVerticalTextsWidth();
     var gridLeft = verticalTextW + yLabelW;
 
+    this._rebuildColumnGeometry();
+
     // Ruang ekstra di atas mencegah label Y tertinggi (mis. 10) terpotong.
-    // Ruang di kanan memberi tempat untuk label X terakhir dan tanda pada batas kanan.
+    // Ruang di kanan mengikuti setengah lebar kolom terakhir agar label X terakhir tetap terlihat.
     var topPad = Math.ceil(o.cellHeight / 2) + 4;
-    var rightPad = Math.ceil(o.cellWidth / 2) + 4;
-    var gridW = (o.columns - 1) * o.cellWidth;
+    var lastColWidth = this._columnWidths.length
+      ? this._columnWidths[this._columnWidths.length - 1]
+      : o.colWidth;
+    var rightPad = Math.ceil(lastColWidth / 2) + 4;
+    var gridW = this._gridWidth;
     var gridH = (o.rows - 1) * o.cellHeight;
     var chartW = gridLeft + gridW + rightPad;
     var chartH = topPad + gridH + axisH + timeH;
@@ -315,14 +448,15 @@
     this.dom.xLabels.style.top = (topPad + gridH) + 'px';
     this.dom.xLabels.style.width = gridW + 'px';
     this.dom.xLabels.style.height = axisH + 'px';
-    this.dom.xLabels.style.gridTemplateColumns = 'repeat(' + o.columns + ', ' + o.cellWidth + 'px)';
-    this.dom.xLabels.style.transform = 'translateX(-' + (o.cellWidth / 2) + 'px)';
+    this.dom.xLabels.style.transform = 'none';
 
     this.dom.timeLabel.style.top = (topPad + gridH + axisH) + 'px';
     this.dom.timeLabel.style.height = timeH + 'px';
     this.dom.timeCells.style.top = (topPad + gridH + axisH) + 'px';
     this.dom.timeCells.style.width = gridW + 'px';
     this.dom.timeCells.style.height = timeH + 'px';
+
+    this._renderColumnGuides();
   };
 
   InteractiveGrid.prototype._normalizeVerticalText = function (item, fallbackId) {
@@ -429,9 +563,15 @@
     yStep = Math.max(1, Math.floor(yStep));
 
     // Hanya frekuensi label yang berubah; grid dan koordinat tetap sama.
+    // Posisi label X mengikuti posisi kumulatif lebar masing-masing kolom.
     for (var x = 0; x < o.columns; x++) {
       var showXLabel = (x % xStep) === 0;
-      xHTML += '<div>' + (showXLabel ? this._escape(o.xStart + x) : '') + '</div>';
+      var left = this._xPositions && this._xPositions[x] != null
+        ? this._xPositions[x]
+        : x * o.colWidth;
+      xHTML += '<div style="left:' + left + 'px">' +
+        (showXLabel ? this._escape(o.xStart + x) : '') +
+        '</div>';
     }
 
     // Loop Y dirender dari nilai tertinggi ke terendah agar sesuai posisi visual sumbu Y.
@@ -514,8 +654,12 @@
   };
 
   InteractiveGrid.prototype._coords = function (internalX, internalY) {
+    var px = this._xPositions && this._xPositions[internalX] != null
+      ? this._xPositions[internalX]
+      : internalX * this.options.colWidth;
+
     return {
-      px: internalX * this.options.cellWidth,
+      px: px,
       py: (this.options.rows - 1 - internalY) * this.options.cellHeight
     };
   };
@@ -524,7 +668,19 @@
     var r = this.dom.interaction.getBoundingClientRect();
     var lx = Math.max(0, Math.min(r.width, evt.clientX - r.left));
     var ly = Math.max(0, Math.min(r.height, evt.clientY - r.top));
-    var ix = Math.max(0, Math.min(this.options.columns - 1, Math.round(lx / this.options.cellWidth)));
+
+    var ix = 0;
+    var bestDistance = Infinity;
+    var positions = this._xPositions || [0];
+    for (var xi = 0; xi < positions.length; xi++) {
+      var distance = Math.abs(lx - positions[xi]);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        ix = xi;
+      }
+    }
+    ix = Math.max(0, Math.min(this.options.columns - 1, ix));
+
     var screenRow = Math.max(0, Math.min(this.options.rows - 1, Math.round(ly / this.options.cellHeight)));
     var iy = this.options.rows - 1 - screenRow;
     return this._publicXY(ix, iy);
@@ -967,7 +1123,8 @@
     return {
       points: this.getData(),
       permanent: this.getPermanentData(),
-      verticalTexts: this.getVerticalTexts()
+      verticalTexts: this.getVerticalTexts(),
+      columnLayout: this.getColumnLayout()
     };
   };
 
@@ -975,6 +1132,7 @@
     state = state || {};
     this.setPermanentData(Array.isArray(state.permanent) ? state.permanent : []);
     if (state.verticalTexts != null) this.setVerticalTexts(state.verticalTexts);
+    if (state.columnLayout != null) this.setColumnLayout(state.columnLayout);
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
   };
@@ -1069,6 +1227,103 @@
 
   InteractiveGrid.prototype.fromJSON = function (json, options) {
     return this.setData(typeof json === 'string' ? JSON.parse(json) : json, options);
+  };
+
+  InteractiveGrid.prototype.getColWidth = function () {
+    return this.options.colWidth;
+  };
+
+  InteractiveGrid.prototype.setColWidth = function (width) {
+    width = Number(width);
+    if (!(width > 0)) {
+      throw new Error('InteractiveGrid.setColWidth: width harus lebih besar dari 0.');
+    }
+
+    this.options.colWidth = width;
+    this.options.cellWidth = width;
+    return this._refreshColumnLayout();
+  };
+
+  InteractiveGrid.prototype.getColumnWidth = function (columnNumber) {
+    columnNumber = Number(columnNumber);
+    if (!Number.isInteger(columnNumber) || columnNumber < 1 || columnNumber > this.options.columns - 1) {
+      return null;
+    }
+
+    if (!this._columnWidths || this._columnWidths.length !== this.options.columns - 1) {
+      this._rebuildColumnGeometry();
+    }
+    return this._columnWidths[columnNumber - 1];
+  };
+
+  InteractiveGrid.prototype.getColumnWidths = function () {
+    if (!this._columnWidths || this._columnWidths.length !== this.options.columns - 1) {
+      this._rebuildColumnGeometry();
+    }
+    return this._columnWidths.slice();
+  };
+
+  InteractiveGrid.prototype.setColumnWidth = function (columnNumber, width) {
+    columnNumber = Number(columnNumber);
+    width = Number(width);
+
+    if (!Number.isInteger(columnNumber) || columnNumber < 1 || columnNumber > this.options.columns - 1) {
+      throw new Error('InteractiveGrid.setColumnWidth: nomor kolom harus 1 sampai ' + (this.options.columns - 1) + '.');
+    }
+    if (!(width > 0)) {
+      throw new Error('InteractiveGrid.setColumnWidth: width harus lebih besar dari 0.');
+    }
+
+    this._columnWidthOverrides[columnNumber] = width;
+    return this._refreshColumnLayout();
+  };
+
+  InteractiveGrid.prototype.resetColumnWidth = function (columnNumber) {
+    columnNumber = Number(columnNumber);
+    if (!Number.isInteger(columnNumber) || columnNumber < 1 || columnNumber > this.options.columns - 1) {
+      throw new Error('InteractiveGrid.resetColumnWidth: nomor kolom harus 1 sampai ' + (this.options.columns - 1) + '.');
+    }
+
+    delete this._columnWidthOverrides[columnNumber];
+    return this._refreshColumnLayout();
+  };
+
+  InteractiveGrid.prototype.setColumnWidths = function (config) {
+    this._columnWidthOverrides = {};
+    this._loadColumnWidthOverrides(config);
+    return this._refreshColumnLayout();
+  };
+
+  InteractiveGrid.prototype.getColumnLayout = function () {
+    var config = {};
+    Object.keys(this._columnWidthOverrides).forEach(function (key) {
+      config[key] = { colWidth: Number(this._columnWidthOverrides[key]) };
+    }, this);
+
+    return {
+      colWidth: this.options.colWidth,
+      columnsConfig: config
+    };
+  };
+
+  InteractiveGrid.prototype.setColumnLayout = function (layout) {
+    layout = layout || {};
+
+    if (layout.colWidth != null) {
+      var width = Number(layout.colWidth);
+      if (!(width > 0)) {
+        throw new Error('InteractiveGrid.setColumnLayout: colWidth harus lebih besar dari 0.');
+      }
+      this.options.colWidth = width;
+      this.options.cellWidth = width;
+    }
+
+    this._columnWidthOverrides = {};
+    this._loadColumnWidthOverrides(layout.colWidths);
+    this._loadColumnWidthOverrides(layout.columnWidths);
+    this._loadColumnWidthOverrides(layout.columnsConfig);
+
+    return this._refreshColumnLayout();
   };
 
   InteractiveGrid.prototype.getVerticalTexts = function () {
@@ -1187,6 +1442,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '1.5.0';
+  InteractiveGrid.VERSION = '1.6.0';
   return InteractiveGrid;
 });
