@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.4.0
+/* InteractiveGrid v2.5.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -114,6 +114,13 @@
     showStatus: true,
     showUndo: true,
     showClear: true,
+
+    // Multi drawing / multi series.
+    showDrawControls: true,
+    drawButtonText: 'Draw',
+    stopDrawButtonText: 'Stop Draw',
+    drawings: [],
+    onDrawingsChange: null,
     lineWidth: 4,
     // Penanda biasa/interaktif. dotSize/xSize adalah nama utama.
     // markSize/xMarkSize dipertahankan sebagai alias kompatibilitas versi lama.
@@ -186,6 +193,24 @@
         textSize: item.textSize,
         textOffset: item.textOffset,
         textFontFamily: item.textFontFamily
+      };
+    });
+  }
+
+  function cloneDrawings(drawings) {
+    return (drawings || []).map(function (d) {
+      return {
+        id: d.id,
+        lineColor: d.lineColor,
+        lineWidth: d.lineWidth,
+        markColor: d.markColor,
+        dotColor: d.dotColor,
+        xColor: d.xColor,
+        dotSize: d.dotSize,
+        xSize: d.xSize,
+        markStrokeWidth: d.markStrokeWidth,
+        showDotOnTop: !!d.showDotOnTop,
+        points: clonePoints(d.points || [])
       };
     });
   }
@@ -277,6 +302,12 @@
     this.options.markSize = this.options.dotSize;
     this.options.xMarkSize = this.options.xSize;
     this.points = [];
+
+    this.drawings = [];
+    this.activeDrawingId = null;
+    this._drawingSeq = 0;
+    this._setDrawingsInternal(this.options.drawings);
+
     this.permanentData = [];
     this._permanentSeq = 0;
 
@@ -681,6 +712,8 @@
     var toolbar = document.createElement('div');
     toolbar.className = 'ig-toolbar' + (o.showToolbar ? '' : ' ig-hidden');
     toolbar.innerHTML =
+      '<button type="button" class="ig-draw">' + this._escape(o.drawButtonText || 'Draw') + '</button>' +
+      '<button type="button" class="ig-stop-draw">' + this._escape(o.stopDrawButtonText || 'Stop Draw') + '</button>' +
       '<button type="button" class="ig-undo">Undo</button>' +
       '<button type="button" class="ig-clear">Hapus Semua</button>' +
       '<span class="ig-status' + (o.showStatus ? '' : ' ig-hidden') + '" aria-live="polite"></span>';
@@ -738,6 +771,8 @@
 
     this.dom = {
       toolbar: toolbar,
+      draw: toolbar.querySelector('.ig-draw'),
+      stopDraw: toolbar.querySelector('.ig-stop-draw'),
       undo: toolbar.querySelector('.ig-undo'),
       clear: toolbar.querySelector('.ig-clear'),
       chart: chart,
@@ -764,8 +799,13 @@
       status: toolbar.querySelector('.ig-status')
     };
 
+    if (!o.showDrawControls) {
+      this.dom.draw.classList.add('ig-hidden');
+      this.dom.stopDraw.classList.add('ig-hidden');
+    }
     if (!o.showUndo) this.dom.undo.classList.add('ig-hidden');
     if (!o.showClear) this.dom.clear.classList.add('ig-hidden');
+    this._updateDrawToolbar();
     this._layout();
     this._renderLabels();
     this._renderVerticalTexts();
@@ -1044,6 +1084,94 @@
     this._bound.push([el, event, fn, opts]);
   };
 
+  InteractiveGrid.prototype._normalizeDrawing = function (data, fallbackId) {
+    data = data || {};
+    var id = data.id != null && String(data.id).trim() ? String(data.id) : fallbackId;
+    var out = {
+      id: id,
+      lineColor: data.lineColor || this.options.lineColor,
+      lineWidth: Number(data.lineWidth) > 0 ? Number(data.lineWidth) : this.options.lineWidth,
+      markColor: data.markColor || this.options.markColor,
+      dotColor: data.dotColor != null ? data.dotColor : this.options.dotColor,
+      xColor: data.xColor != null ? data.xColor : this.options.xColor,
+      dotSize: Number(data.dotSize) > 0 ? Number(data.dotSize) : this.options.dotSize,
+      xSize: Number(data.xSize) > 0 ? Number(data.xSize) : this.options.xSize,
+      markStrokeWidth: Number(data.markStrokeWidth) > 0 ? Number(data.markStrokeWidth) : this.options.markStrokeWidth,
+      showDotOnTop: data.showDotOnTop != null ? !!data.showDotOnTop : !!this.options.showDotOnTop,
+      points: []
+    };
+
+    var pts = Array.isArray(data.points) ? data.points : [];
+    for (var i = 0; i < pts.length; i++) {
+      var p = pts[i] || {};
+      var x = Number(p.x), y = Number(p.y);
+      if (!this._validCoord(x, y)) continue;
+      var types = Array.isArray(p.types) ? p.types.filter(isValidType) : (isValidType(p.type) ? [p.type] : []);
+      types = types.filter(function (v, idx, arr) { return arr.indexOf(v) === idx; });
+      if (!types.length) continue;
+      var np = { x: x, y: y, types: types.slice() };
+      var styles = cloneMarkStyles(p.styles);
+      if (Object.keys(styles).length) np.styles = styles;
+      out.points.push(np);
+    }
+    return out;
+  };
+
+  InteractiveGrid.prototype._setDrawingsInternal = function (data) {
+    this.drawings = [];
+    if (!Array.isArray(data)) return;
+    var used = {};
+    for (var i = 0; i < data.length; i++) {
+      this._drawingSeq += 1;
+      var drawing = this._normalizeDrawing(data[i], 'draw-' + this._drawingSeq);
+      if (used[drawing.id]) drawing.id = drawing.id + '-' + this._drawingSeq;
+      used[drawing.id] = true;
+      this.drawings.push(drawing);
+    }
+  };
+
+  InteractiveGrid.prototype._findDrawing = function (id) {
+    id = String(id);
+    for (var i = 0; i < this.drawings.length; i++) {
+      if (this.drawings[i].id === id) return this.drawings[i];
+    }
+    return null;
+  };
+
+  InteractiveGrid.prototype._findDrawingPoint = function (drawing, x, y) {
+    if (!drawing) return null;
+    for (var i = 0; i < drawing.points.length; i++) {
+      if (drawing.points[i].x === x && drawing.points[i].y === y) return drawing.points[i];
+    }
+    return null;
+  };
+
+  InteractiveGrid.prototype._activeDrawing = function () {
+    return this.activeDrawingId ? this._findDrawing(this.activeDrawingId) : null;
+  };
+
+  InteractiveGrid.prototype._updateDrawToolbar = function () {
+    if (!this.dom || !this.dom.draw || !this.dom.stopDraw) return;
+    var active = !!this._activeDrawing();
+    this.dom.draw.classList.toggle('ig-draw-active', active);
+    this.dom.draw.setAttribute('aria-pressed', active ? 'true' : 'false');
+    this.dom.draw.textContent = active ? (this.options.drawButtonText || 'Draw') + ' +' : (this.options.drawButtonText || 'Draw');
+    this.dom.stopDraw.disabled = !active;
+  };
+
+  InteractiveGrid.prototype._emitDrawingsChange = function (reason, drawing) {
+    var detail = {
+      reason: reason,
+      drawing: drawing ? cloneDrawings([drawing])[0] : null,
+      activeDrawingId: this.activeDrawingId,
+      drawings: this.getDrawings()
+    };
+    this.el.dispatchEvent(new CustomEvent('interactivegrid:drawingschange', { detail: detail }));
+    if (typeof this.options.onDrawingsChange === 'function') {
+      this.options.onDrawingsChange(detail.drawings, reason, detail.drawing, detail.activeDrawingId);
+    }
+  };
+
   InteractiveGrid.prototype._noteKey = function (x, y) {
     return String(Number(x)) + ',' + String(Number(y));
   };
@@ -1310,14 +1438,22 @@
 
       var add = e.target.closest('[data-type]');
       if (add && self.pendingCell) {
-        self.addPoint(self.pendingCell.x, self.pendingCell.y, add.getAttribute('data-type'));
+        if (self._activeDrawing()) {
+          self.addDrawingPoint(self.pendingCell.x, self.pendingCell.y, add.getAttribute('data-type'));
+        } else {
+          self.addPoint(self.pendingCell.x, self.pendingCell.y, add.getAttribute('data-type'));
+        }
         self._hideMenu();
         return;
       }
       var del = e.target.closest('[data-delete-type]');
       if (del && self.pendingCell) {
-        var type = del.getAttribute('data-delete-type');
-        self.removePoint(self.pendingCell.x, self.pendingCell.y, type === 'all' ? undefined : type);
+        var type = del.getAttribute('[data-delete-type]') || del.getAttribute('data-delete-type');
+        if (self._activeDrawing()) {
+          self.removeDrawingPoint(self.activeDrawingId, self.pendingCell.x, self.pendingCell.y, type === 'all' ? undefined : type);
+        } else {
+          self.removePoint(self.pendingCell.x, self.pendingCell.y, type === 'all' ? undefined : type);
+        }
         self._hideMenu();
       }
     });
@@ -1350,6 +1486,12 @@
       }
     });
 
+    this._bind(d.draw, 'click', function () {
+      self.startDrawing();
+    });
+    this._bind(d.stopDraw, 'click', function () {
+      self.stopDrawing();
+    });
     this._bind(d.undo, 'click', function () { self.undo(); });
     this._bind(d.clear, 'click', function () { self.clear(); });
 
@@ -1498,7 +1640,10 @@
 
   InteractiveGrid.prototype._showMenu = function (cell) {
     this.pendingCell = { x: cell.x, y: cell.y };
-    var point = this._find(cell.x, cell.y);
+    var activeDrawing = this._activeDrawing();
+    var point = activeDrawing
+      ? this._findDrawingPoint(activeDrawing, cell.x, cell.y)
+      : this._find(cell.x, cell.y);
     var hasDot = !!(point && point.types.indexOf('dot') >= 0);
     var hasX = !!(point && point.types.indexOf('x') >= 0);
 
@@ -1547,7 +1692,11 @@
   };
 
   InteractiveGrid.prototype._pushHistory = function () {
-    this.history.push(clonePoints(this.points));
+    this.history.push({
+      points: clonePoints(this.points),
+      drawings: cloneDrawings(this.drawings),
+      activeDrawingId: this.activeDrawingId
+    });
     if (this.history.length > 100) this.history.shift();
   };
 
@@ -1681,12 +1830,63 @@
     };
   };
 
+  InteractiveGrid.prototype._resolveDrawingPointMarkStyle = function (drawing, point, type) {
+    var style = point && point.styles && point.styles[type] ? point.styles[type] : {};
+    var typeColor = type === 'dot' ? drawing.dotColor : drawing.xColor;
+    var fallbackColor = (typeColor != null && String(typeColor).trim()) ? typeColor : drawing.markColor;
+    return {
+      color: (style.color != null && String(style.color).trim()) ? style.color : fallbackColor,
+      size: Number(style.size) > 0 ? Number(style.size) : (type === 'dot' ? drawing.dotSize : drawing.xSize),
+      strokeWidth: Number(style.strokeWidth) > 0 ? Number(style.strokeWidth) : drawing.markStrokeWidth
+    };
+  };
+
+  InteractiveGrid.prototype._renderDrawings = function () {
+    for (var d = 0; d < this.drawings.length; d++) {
+      var drawing = this.drawings[d];
+
+      for (var i = 1; i < drawing.points.length; i++) {
+        var a = this._internalXY(drawing.points[i - 1].x, drawing.points[i - 1].y);
+        var b = this._internalXY(drawing.points[i].x, drawing.points[i].y);
+        var p1 = this._coords(a.x, a.y), p2 = this._coords(b.x, b.y);
+        this._svg('line', {
+          x1: p1.px, y1: p1.py, x2: p2.px, y2: p2.py,
+          stroke: drawing.lineColor,
+          'stroke-width': drawing.lineWidth,
+          'stroke-linecap': 'round',
+          'data-drawing-id': drawing.id
+        });
+      }
+
+      for (var j = 0; j < drawing.points.length; j++) {
+        var pt = drawing.points[j];
+        var ii = this._internalXY(pt.x, pt.y);
+        var p = this._coords(ii.x, ii.y);
+        var hasDot = pt.types.indexOf('dot') >= 0;
+        var hasX = pt.types.indexOf('x') >= 0;
+        var order = drawing.showDotOnTop ? ['x', 'dot'] : ['dot', 'x'];
+
+        for (var oi = 0; oi < order.length; oi++) {
+          var type = order[oi];
+          if ((type === 'dot' && !hasDot) || (type === 'x' && !hasX)) continue;
+          var st = this._resolveDrawingPointMarkStyle(drawing, pt, type);
+          this._drawMark(p, type, st.color, {
+            markSize: st.size,
+            xMarkSize: st.size,
+            markStrokeWidth: st.strokeWidth
+          });
+        }
+      }
+    }
+  };
+
   InteractiveGrid.prototype.render = function () {
     if (this.destroyed) return this;
     var ov = this.dom.overlay;
     while (ov.firstChild) ov.removeChild(ov.firstChild);
 
     this._renderPermanent();
+    this._renderDrawings();
 
     for (var i = 1; i < this.points.length; i++) {
       var a = this._internalXY(this.points[i - 1].x, this.points[i - 1].y);
@@ -1729,7 +1929,13 @@
     this._renderNotes();
 
     var total = this.points.reduce(function (n, p) { return n + p.types.length; }, 0);
-    this.dom.status.textContent = this.points.length ? (total + ' tanda pada ' + this.points.length + ' koordinat.') : 'Belum ada tanda.';
+    var coordCount = this.points.length;
+    for (var di = 0; di < this.drawings.length; di++) {
+      coordCount += this.drawings[di].points.length;
+      total += this.drawings[di].points.reduce(function (n, p) { return n + p.types.length; }, 0);
+    }
+    this.dom.status.textContent = coordCount ? (total + ' tanda pada ' + coordCount + ' koordinat, ' + this.drawings.length + ' drawing.') : 'Belum ada tanda.';
+    this._updateDrawToolbar();
     return this;
   };
 
@@ -1928,6 +2134,161 @@
     return this;
   };
 
+  InteractiveGrid.prototype.startDrawing = function (config) {
+    config = config || {};
+    this._pushHistory();
+    this._drawingSeq += 1;
+    var drawing = this._normalizeDrawing(config, 'draw-' + this._drawingSeq);
+
+    while (this._findDrawing(drawing.id)) {
+      this._drawingSeq += 1;
+      drawing.id = 'draw-' + this._drawingSeq;
+    }
+
+    this.drawings.push(drawing);
+    this.activeDrawingId = drawing.id;
+    this.render();
+    this._emitDrawingsChange('start', drawing);
+    return drawing.id;
+  };
+
+  InteractiveGrid.prototype.stopDrawing = function () {
+    var drawing = this._activeDrawing();
+    this.activeDrawingId = null;
+    this._updateDrawToolbar();
+    if (drawing) this._emitDrawingsChange('stop', drawing);
+    return this;
+  };
+
+  InteractiveGrid.prototype.activateDrawing = function (id) {
+    var drawing = this._findDrawing(id);
+    if (!drawing) throw new Error('InteractiveGrid.activateDrawing: drawing tidak ditemukan: ' + id);
+    this.activeDrawingId = drawing.id;
+    this._updateDrawToolbar();
+    this._emitDrawingsChange('activate', drawing);
+    return this;
+  };
+
+  InteractiveGrid.prototype.getActiveDrawingId = function () {
+    return this.activeDrawingId;
+  };
+
+  InteractiveGrid.prototype.getDrawings = function () {
+    return cloneDrawings(this.drawings);
+  };
+
+  InteractiveGrid.prototype.getDrawing = function (id) {
+    var drawing = this._findDrawing(id);
+    return drawing ? cloneDrawings([drawing])[0] : null;
+  };
+
+  InteractiveGrid.prototype.setDrawings = function (data, options) {
+    options = options || {};
+    if (!options.silent) this._pushHistory();
+    this._setDrawingsInternal(data);
+    this.activeDrawingId = null;
+    this.render();
+    if (!options.silent) this._emitDrawingsChange('setDrawings', null);
+    return this;
+  };
+
+  InteractiveGrid.prototype.addDrawingPoint = function (x, y, type, style, drawingId) {
+    x = Number(x); y = Number(y);
+    if (!this._validCoord(x, y)) throw new Error('InteractiveGrid.addDrawingPoint: koordinat di luar area grid.');
+    if (!isValidType(type)) throw new Error('InteractiveGrid.addDrawingPoint: type harus dot atau x.');
+
+    var drawing = drawingId ? this._findDrawing(drawingId) : this._activeDrawing();
+    if (!drawing) throw new Error('InteractiveGrid.addDrawingPoint: tidak ada drawing aktif. Klik Draw atau panggil startDrawing().');
+
+    var point = this._findDrawingPoint(drawing, x, y);
+    var exists = point && point.types.indexOf(type) >= 0;
+    var normalizedStyle = this._normalizePointMarkStyle(type, style);
+    var hasStyle = Object.keys(normalizedStyle).length > 0;
+    if (exists && !hasStyle) return this;
+
+    this._pushHistory();
+    if (!point) {
+      point = { x: x, y: y, types: [], styles: {} };
+      drawing.points.push(point);
+    }
+    if (!point.styles) point.styles = {};
+    if (!exists) point.types.push(type);
+    if (hasStyle) point.styles[type] = normalizedStyle;
+
+    this.render();
+    this._emitDrawingsChange(exists ? 'style' : 'addPoint', drawing);
+    return this;
+  };
+
+  InteractiveGrid.prototype.removeDrawingPoint = function (drawingId, x, y, type) {
+    var drawing = this._findDrawing(drawingId);
+    if (!drawing) return this;
+    x = Number(x); y = Number(y);
+
+    var idx = -1;
+    for (var i = 0; i < drawing.points.length; i++) {
+      if (drawing.points[i].x === x && drawing.points[i].y === y) { idx = i; break; }
+    }
+    if (idx < 0) return this;
+    if (type !== undefined && !isValidType(type)) throw new Error('InteractiveGrid.removeDrawingPoint: type harus dot, x, atau dikosongkan.');
+    if (type && drawing.points[idx].types.indexOf(type) < 0) return this;
+
+    this._pushHistory();
+    if (!type) {
+      drawing.points.splice(idx, 1);
+    } else {
+      drawing.points[idx].types = drawing.points[idx].types.filter(function (t) { return t !== type; });
+      if (drawing.points[idx].styles) delete drawing.points[idx].styles[type];
+      if (!drawing.points[idx].types.length) drawing.points.splice(idx, 1);
+    }
+
+    this.render();
+    this._emitDrawingsChange('removePoint', drawing);
+    return this;
+  };
+
+  InteractiveGrid.prototype.removeDrawing = function (id) {
+    var drawing = this._findDrawing(id);
+    if (!drawing) return this;
+    this._pushHistory();
+    this.drawings = this.drawings.filter(function (d) { return d.id !== String(id); });
+    if (this.activeDrawingId === String(id)) this.activeDrawingId = null;
+    this.render();
+    this._emitDrawingsChange('removeDrawing', drawing);
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearDrawings = function () {
+    if (!this.drawings.length) return this;
+    this._pushHistory();
+    this.drawings = [];
+    this.activeDrawingId = null;
+    this.render();
+    this._emitDrawingsChange('clearDrawings', null);
+    return this;
+  };
+
+  InteractiveGrid.prototype.updateDrawing = function (id, patch) {
+    var drawing = this._findDrawing(id);
+    if (!drawing) return this;
+    patch = patch || {};
+    this._pushHistory();
+
+    if (patch.lineColor != null) drawing.lineColor = patch.lineColor;
+    if (Number(patch.lineWidth) > 0) drawing.lineWidth = Number(patch.lineWidth);
+    if (patch.markColor != null) drawing.markColor = patch.markColor;
+    if (patch.dotColor !== undefined) drawing.dotColor = patch.dotColor;
+    if (patch.xColor !== undefined) drawing.xColor = patch.xColor;
+    if (Number(patch.dotSize) > 0) drawing.dotSize = Number(patch.dotSize);
+    if (Number(patch.xSize) > 0) drawing.xSize = Number(patch.xSize);
+    if (Number(patch.markStrokeWidth) > 0) drawing.markStrokeWidth = Number(patch.markStrokeWidth);
+    if (patch.showDotOnTop != null) drawing.showDotOnTop = !!patch.showDotOnTop;
+
+    this.render();
+    this._emitDrawingsChange('updateDrawing', drawing);
+    return this;
+  };
+
   InteractiveGrid.prototype.getNotes = function () {
     var out = [];
     var keys = Object.keys(this.notes);
@@ -2059,6 +2420,7 @@
   InteractiveGrid.prototype.getAllData = function () {
     return {
       points: this.getData(),
+      drawings: this.getDrawings(),
       permanent: this.getPermanentData(),
       verticalTexts: this.getVerticalTexts(),
       columnLayout: this.getColumnLayout(),
@@ -2115,6 +2477,7 @@
       this.options.notePosition = state.viewConfig.notePosition;
     }
     this._renderNotes();
+    if (state.drawings != null) this.setDrawings(state.drawings, { silent: true });
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
   };
@@ -2178,19 +2541,30 @@
   };
 
   InteractiveGrid.prototype.clear = function () {
-    if (!this.points.length) return this;
+    if (!this.points.length && !this.drawings.length) return this;
     this._pushHistory();
     this.points = [];
+    this.drawings = [];
+    this.activeDrawingId = null;
     this.render();
     this._emitChange('clear');
+    this._emitDrawingsChange('clear', null);
     return this;
   };
 
   InteractiveGrid.prototype.undo = function () {
     if (!this.history.length) return this;
-    this.points = this.history.pop();
+    var snapshot = this.history.pop();
+    if (Array.isArray(snapshot)) {
+      this.points = snapshot;
+    } else {
+      this.points = clonePoints(snapshot.points || []);
+      this.drawings = cloneDrawings(snapshot.drawings || []);
+      this.activeDrawingId = snapshot.activeDrawingId || null;
+    }
     this.render();
     this._emitChange('undo');
+    this._emitDrawingsChange('undo', this._activeDrawing());
     return this;
   };
 
@@ -2768,6 +3142,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.4.0';
+  InteractiveGrid.VERSION = '2.5.0';
   return InteractiveGrid;
 });
