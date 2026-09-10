@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.6.1
+/* InteractiveGrid v2.7.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -114,6 +114,10 @@
     showStatus: true,
     showUndo: true,
     showClear: true,
+
+    // Posisi isi toolbar: left | center | right.
+    // Default tetap left agar kompatibel dengan tampilan sebelumnya.
+    toolbarAlign: 'left',
 
     // Multi drawing / multi series.
     showDrawControls: true,
@@ -331,6 +335,10 @@
     this.pendingCell = null;
     this.destroyed = false;
     this._bound = [];
+
+    var toolbarAlign = String(this.options.toolbarAlign || 'left').toLowerCase();
+    if (['left', 'center', 'right'].indexOf(toolbarAlign) < 0) toolbarAlign = 'left';
+    this.options.toolbarAlign = toolbarAlign;
 
     this._build();
     this._bindEvents();
@@ -812,6 +820,8 @@
     }
     if (!o.showUndo) this.dom.undo.classList.add('ig-hidden');
     if (!o.showClear) this.dom.clear.classList.add('ig-hidden');
+
+    this._applyToolbarAlign();
     this._updateDrawToolbar();
     this._layout();
     this._renderLabels();
@@ -1155,6 +1165,22 @@
 
   InteractiveGrid.prototype._activeDrawing = function () {
     return this.activeDrawingId ? this._findDrawing(this.activeDrawingId) : null;
+  };
+
+  InteractiveGrid.prototype._applyToolbarAlign = function () {
+    if (!this.dom || !this.dom.toolbar) return this;
+
+    var align = String(this.options.toolbarAlign || 'left').toLowerCase();
+    if (['left', 'center', 'right'].indexOf(align) < 0) align = 'left';
+
+    this.options.toolbarAlign = align;
+    this.dom.toolbar.classList.remove(
+      'ig-toolbar-left',
+      'ig-toolbar-center',
+      'ig-toolbar-right'
+    );
+    this.dom.toolbar.classList.add('ig-toolbar-' + align);
+    return this;
   };
 
   InteractiveGrid.prototype._canEditMarks = function () {
@@ -2491,6 +2517,7 @@
         showStatus: !!this.options.showStatus,
         showNotes: !!this.options.showNotes,
         clickDrawToDraw: !!this.options.clickDrawToDraw,
+        toolbarAlign: this.options.toolbarAlign,
         notePointer: !!this.options.notePointer,
         notePointerType: this.options.notePointerType,
         showNoteAnchorDot: !!this.options.showNoteAnchorDot,
@@ -2526,6 +2553,12 @@
     if (state.viewConfig && state.viewConfig.clickDrawToDraw != null) {
       this.options.clickDrawToDraw = !!state.viewConfig.clickDrawToDraw;
     }
+    if (state.viewConfig && state.viewConfig.toolbarAlign != null) {
+      var restoredToolbarAlign = String(state.viewConfig.toolbarAlign).toLowerCase();
+      if (['left', 'center', 'right'].indexOf(restoredToolbarAlign) >= 0) {
+        this.options.toolbarAlign = restoredToolbarAlign;
+      }
+    }
     if (state.viewConfig && state.viewConfig.notePointer != null) {
       this.options.notePointer = !!state.viewConfig.notePointer;
     }
@@ -2539,6 +2572,7 @@
       this.options.notePosition = state.viewConfig.notePosition;
     }
     this._renderNotes();
+    this._applyToolbarAlign();
     this._updateDrawToolbar();
     if (state.drawings != null) this.setDrawings(state.drawings, { silent: true });
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
@@ -2961,6 +2995,22 @@
     return this;
   };
 
+  InteractiveGrid.prototype.setToolbarAlign = function (align) {
+    align = String(align || '').toLowerCase();
+
+    if (['left', 'center', 'right'].indexOf(align) < 0) {
+      throw new Error('InteractiveGrid.setToolbarAlign: align harus left, center, atau right.');
+    }
+
+    this.options.toolbarAlign = align;
+    this._applyToolbarAlign();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getToolbarAlign = function () {
+    return this.options.toolbarAlign;
+  };
+
   InteractiveGrid.prototype.setClickDrawToDraw = function (enabled) {
     this.options.clickDrawToDraw = !!enabled;
 
@@ -3219,6 +3269,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.6.1';
+  InteractiveGrid.VERSION = '2.7.0';
   return InteractiveGrid;
 });

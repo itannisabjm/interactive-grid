@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.6.1 - framework agnostic */
+/* InteractiveGrid v2.7.0 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -30,6 +30,19 @@
   flex-wrap: wrap;
   margin-bottom: 10px;
 }
+
+.ig-toolbar.ig-toolbar-left {
+  justify-content: flex-start;
+}
+
+.ig-toolbar.ig-toolbar-center {
+  justify-content: center;
+}
+
+.ig-toolbar.ig-toolbar-right {
+  justify-content: flex-end;
+}
+
 
 .ig-root.ig-draw-locked .ig-interaction {
   cursor: crosshair;
