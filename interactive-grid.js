@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.2.2
+/* InteractiveGrid v2.3.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -90,6 +90,14 @@
     timeInputPlaceholder: 'HH:MM',
     timeData: [],
     onTimeChange: null,
+
+    // Catatan pada koordinat tertentu.
+    showNotes: false,
+    notes: [],
+    noteWidth: 220,
+    noteMinHeight: 86,
+    notePlaceholder: 'Tulis catatan...',
+    onNotesChange: null,
 
     showToolbar: true,
     showStatus: true,
@@ -267,6 +275,9 @@
 
     this.timeData = {};
     this._setTimeDataInternal(this.options.timeData);
+
+    this.notes = {};
+    this._setNotesInternal(this.options.notes);
 
     this.history = [];
     this.pendingCell = null;
@@ -677,6 +688,7 @@
       '<div class="ig-time-label"></div>' +
       '<div class="ig-time-cells"></div>' +
       '<svg class="ig-overlay" aria-hidden="true"></svg>' +
+      '<div class="ig-notes-layer"></div>' +
       '<div class="ig-interaction" aria-label="Area interaksi grafik"></div>' +
       '<div class="ig-hover-plus" aria-hidden="true"></div>' +
       '<div class="ig-menu" role="dialog" aria-label="Pilihan tanda">' +
@@ -693,6 +705,20 @@
           '<button type="button" class="ig-delete" data-delete-type="dot">Hapus ●</button>' +
           '<button type="button" class="ig-delete" data-delete-type="x">Hapus X</button>' +
           '<button type="button" class="ig-delete-all" data-delete-type="all">Hapus semua di titik</button>' +
+        '</div>' +
+        '<div class="ig-menu-section ig-note-section">' +
+          '<div class="ig-menu-title">Catatan koordinat</div>' +
+          '<button type="button" class="ig-note-action ig-note-create" data-note-action="create">Buat Note</button>' +
+          '<button type="button" class="ig-note-action ig-note-edit" data-note-action="edit">Edit Note</button>' +
+          '<button type="button" class="ig-note-action ig-note-delete" data-note-action="delete">Hapus Note</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ig-note-editor" role="dialog" aria-label="Editor catatan">' +
+        '<div class="ig-note-editor-title">Catatan</div>' +
+        '<textarea class="ig-note-editor-text"></textarea>' +
+        '<div class="ig-note-editor-actions">' +
+          '<button type="button" class="ig-note-save">Simpan</button>' +
+          '<button type="button" class="ig-note-cancel">Batal</button>' +
         '</div>' +
       '</div>';
 
@@ -711,10 +737,19 @@
       timeLabel: chart.querySelector('.ig-time-label'),
       timeCells: chart.querySelector('.ig-time-cells'),
       overlay: chart.querySelector('.ig-overlay'),
+      notesLayer: chart.querySelector('.ig-notes-layer'),
       interaction: chart.querySelector('.ig-interaction'),
       hoverPlus: chart.querySelector('.ig-hover-plus'),
       menu: chart.querySelector('.ig-menu'),
       deleteSection: chart.querySelector('.ig-delete-section'),
+      noteSection: chart.querySelector('.ig-note-section'),
+      noteCreate: chart.querySelector('.ig-note-create'),
+      noteEdit: chart.querySelector('.ig-note-edit'),
+      noteDelete: chart.querySelector('.ig-note-delete'),
+      noteEditor: chart.querySelector('.ig-note-editor'),
+      noteEditorText: chart.querySelector('.ig-note-editor-text'),
+      noteSave: chart.querySelector('.ig-note-save'),
+      noteCancel: chart.querySelector('.ig-note-cancel'),
       status: toolbar.querySelector('.ig-status')
     };
 
@@ -994,6 +1029,133 @@
     this._bound.push([el, event, fn, opts]);
   };
 
+  InteractiveGrid.prototype._noteKey = function (x, y) {
+    return String(Number(x)) + ',' + String(Number(y));
+  };
+
+  InteractiveGrid.prototype._normalizeNote = function (item) {
+    item = item || {};
+    var x = Number(item.x), y = Number(item.y);
+    if (!this._validCoord(x, y)) return null;
+    var text = item.text == null ? '' : String(item.text);
+    return { x: x, y: y, text: text };
+  };
+
+  InteractiveGrid.prototype._setNotesInternal = function (data) {
+    this.notes = {};
+    if (data == null) return;
+
+    if (!Array.isArray(data) && typeof data === 'object') {
+      var arr = [];
+      Object.keys(data).forEach(function (key) {
+        var value = data[key];
+        if (value && typeof value === 'object' && value.x != null && value.y != null) {
+          arr.push(value);
+          return;
+        }
+        var parts = String(key).split(',');
+        if (parts.length === 2) {
+          arr.push({ x: Number(parts[0]), y: Number(parts[1]), text: value });
+        }
+      });
+      data = arr;
+    }
+
+    if (!Array.isArray(data)) return;
+
+    for (var i = 0; i < data.length; i++) {
+      var note = this._normalizeNote(data[i]);
+      if (!note) continue;
+      this.notes[this._noteKey(note.x, note.y)] = note;
+    }
+  };
+
+  InteractiveGrid.prototype._getNoteInternal = function (x, y) {
+    return this.notes[this._noteKey(x, y)] || null;
+  };
+
+  InteractiveGrid.prototype._emitNotesChange = function (reason, note) {
+    var detail = {
+      reason: reason,
+      note: note ? { x: note.x, y: note.y, text: note.text } : null,
+      data: this.getNotes()
+    };
+    this.el.dispatchEvent(new CustomEvent('interactivegrid:noteschange', { detail: detail }));
+    if (typeof this.options.onNotesChange === 'function') {
+      this.options.onNotesChange(detail.data, reason, detail.note);
+    }
+  };
+
+  InteractiveGrid.prototype._renderNotes = function () {
+    if (!this.dom || !this.dom.notesLayer) return;
+    var layer = this.dom.notesLayer;
+    layer.innerHTML = '';
+
+    if (!this.options.showNotes) return;
+
+    var keys = Object.keys(this.notes);
+    for (var i = 0; i < keys.length; i++) {
+      var note = this.notes[keys[i]];
+      if (!note || !note.text) continue;
+
+      var internal = this._internalXY(note.x, note.y);
+      var p = this._coords(internal.x, internal.y);
+
+      var card = document.createElement('div');
+      card.className = 'ig-note-card';
+      card.setAttribute('data-note-x', note.x);
+      card.setAttribute('data-note-y', note.y);
+      card.style.left = (p.px + 10) + 'px';
+      card.style.top = (p.py - 10) + 'px';
+      card.style.width = Number(this.options.noteWidth) > 0 ? Number(this.options.noteWidth) + 'px' : '220px';
+      card.style.minHeight = Number(this.options.noteMinHeight) > 0 ? Number(this.options.noteMinHeight) + 'px' : '86px';
+      card.textContent = note.text;
+      layer.appendChild(card);
+    }
+  };
+
+  InteractiveGrid.prototype._openNoteEditor = function (cell) {
+    if (!this.options.showNotes) return this;
+
+    this._editingNoteCell = { x: cell.x, y: cell.y };
+    var existing = this._getNoteInternal(cell.x, cell.y);
+    this.dom.noteEditorText.value = existing ? existing.text : '';
+    this.dom.noteEditorText.placeholder = this.options.notePlaceholder || 'Tulis catatan...';
+    this.dom.noteEditor.classList.add('ig-show');
+
+    var internal = this._internalXY(cell.x, cell.y);
+    var p = this._coords(internal.x, internal.y);
+    var m = this._metrics || { labelW: 48, topPad: 0 };
+
+    var x = m.labelW + p.px + 12;
+    var y = m.topPad + p.py - 12;
+    var ew = Number(this.options.noteWidth) > 0 ? Number(this.options.noteWidth) : 220;
+    var eh = Math.max(130, Number(this.options.noteMinHeight) + 54 || 140);
+    x = Math.max(4, Math.min(x, this.dom.chart.clientWidth - ew - 8));
+    y = Math.max(4, Math.min(y, this.dom.chart.clientHeight - eh - 8));
+
+    this.dom.noteEditor.style.left = x + 'px';
+    this.dom.noteEditor.style.top = y + 'px';
+    this.dom.noteEditor.style.width = ew + 'px';
+
+    var self = this;
+    setTimeout(function () {
+      self.dom.noteEditorText.focus();
+      self.dom.noteEditorText.setSelectionRange(
+        self.dom.noteEditorText.value.length,
+        self.dom.noteEditorText.value.length
+      );
+    }, 0);
+
+    return this;
+  };
+
+  InteractiveGrid.prototype._closeNoteEditor = function () {
+    if (this.dom && this.dom.noteEditor) this.dom.noteEditor.classList.remove('ig-show');
+    this._editingNoteCell = null;
+    return this;
+  };
+
   InteractiveGrid.prototype._bindEvents = function () {
     var self = this;
     var d = this.dom;
@@ -1020,6 +1182,24 @@
         return;
       }
 
+      var noteAction = e.target.closest('[data-note-action]');
+      if (noteAction && self.pendingCell && self.options.showNotes) {
+        var action = noteAction.getAttribute('data-note-action');
+        var cellForNote = { x: self.pendingCell.x, y: self.pendingCell.y };
+
+        if (action === 'create' || action === 'edit') {
+          self._hideMenu();
+          self._openNoteEditor(cellForNote);
+          return;
+        }
+
+        if (action === 'delete') {
+          self.removeNote(cellForNote.x, cellForNote.y);
+          self._hideMenu();
+          return;
+        }
+      }
+
       var add = e.target.closest('[data-type]');
       if (add && self.pendingCell) {
         self.addPoint(self.pendingCell.x, self.pendingCell.y, add.getAttribute('data-type'));
@@ -1031,6 +1211,34 @@
         var type = del.getAttribute('data-delete-type');
         self.removePoint(self.pendingCell.x, self.pendingCell.y, type === 'all' ? undefined : type);
         self._hideMenu();
+      }
+    });
+
+    this._bind(d.noteSave, 'click', function () {
+      if (!self._editingNoteCell) return;
+      var cell = self._editingNoteCell;
+      var text = String(d.noteEditorText.value || '').trim();
+
+      if (!text) {
+        self.removeNote(cell.x, cell.y);
+      } else {
+        self.setNote(cell.x, cell.y, text);
+      }
+      self._closeNoteEditor();
+    });
+
+    this._bind(d.noteCancel, 'click', function () {
+      self._closeNoteEditor();
+    });
+
+    this._bind(d.noteEditorText, 'keydown', function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        self._closeNoteEditor();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        d.noteSave.click();
       }
     });
 
@@ -1191,6 +1399,13 @@
     this.dom.deleteSection.style.display = point ? 'flex' : 'none';
     this.dom.menu.querySelector('[data-delete-type="dot"]').disabled = !hasDot;
     this.dom.menu.querySelector('[data-delete-type="x"]').disabled = !hasX;
+
+    var note = this._getNoteInternal(cell.x, cell.y);
+    this.dom.noteSection.style.display = this.options.showNotes ? 'flex' : 'none';
+    this.dom.noteCreate.style.display = this.options.showNotes && !note ? 'inline-flex' : 'none';
+    this.dom.noteEdit.style.display = this.options.showNotes && note ? 'inline-flex' : 'none';
+    this.dom.noteDelete.style.display = this.options.showNotes && note ? 'inline-flex' : 'none';
+
     this.dom.menu.classList.add('ig-show');
 
     var self = this;
@@ -1403,6 +1618,8 @@
       }
     }
 
+    this._renderNotes();
+
     var total = this.points.reduce(function (n, p) { return n + p.types.length; }, 0);
     this.dom.status.textContent = this.points.length ? (total + ' tanda pada ' + this.points.length + ' koordinat.') : 'Belum ada tanda.';
     return this;
@@ -1603,6 +1820,86 @@
     return this;
   };
 
+  InteractiveGrid.prototype.getNotes = function () {
+    var out = [];
+    var keys = Object.keys(this.notes);
+    for (var i = 0; i < keys.length; i++) {
+      var note = this.notes[keys[i]];
+      out.push({ x: note.x, y: note.y, text: note.text });
+    }
+    return out;
+  };
+
+  InteractiveGrid.prototype.getNote = function (x, y) {
+    var note = this._getNoteInternal(Number(x), Number(y));
+    return note ? { x: note.x, y: note.y, text: note.text } : null;
+  };
+
+  InteractiveGrid.prototype.setNote = function (x, y, text, options) {
+    options = options || {};
+    x = Number(x); y = Number(y);
+    if (!this._validCoord(x, y)) {
+      throw new Error('InteractiveGrid.setNote: koordinat di luar area grid.');
+    }
+
+    text = text == null ? '' : String(text).trim();
+    if (!text) return this.removeNote(x, y, options);
+
+    var key = this._noteKey(x, y);
+    var existed = !!this.notes[key];
+    this.notes[key] = { x: x, y: y, text: text };
+    this._renderNotes();
+
+    if (!options.silent) this._emitNotesChange(existed ? 'edit' : 'add', this.notes[key]);
+    return this;
+  };
+
+  InteractiveGrid.prototype.addNote = InteractiveGrid.prototype.setNote;
+  InteractiveGrid.prototype.updateNote = InteractiveGrid.prototype.setNote;
+
+  InteractiveGrid.prototype.removeNote = function (x, y, options) {
+    options = options || {};
+    x = Number(x); y = Number(y);
+    var key = this._noteKey(x, y);
+    var old = this.notes[key];
+    if (!old) return this;
+
+    delete this.notes[key];
+    this._renderNotes();
+    if (!options.silent) this._emitNotesChange('remove', old);
+    return this;
+  };
+
+  InteractiveGrid.prototype.setNotes = function (data, options) {
+    options = options || {};
+    this._setNotesInternal(data);
+    this._renderNotes();
+    if (!options.silent) this._emitNotesChange('setNotes', null);
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearNotes = function (options) {
+    options = options || {};
+    this.notes = {};
+    this._renderNotes();
+    if (!options.silent) this._emitNotesChange('clear', null);
+    return this;
+  };
+
+  InteractiveGrid.prototype.setShowNotes = function (show) {
+    this.options.showNotes = !!show;
+    this._renderNotes();
+    if (!this.options.showNotes) {
+      this._hideMenu();
+      this._closeNoteEditor();
+    }
+    return this;
+  };
+
+  InteractiveGrid.prototype.getShowNotes = function () {
+    return !!this.options.showNotes;
+  };
+
   InteractiveGrid.prototype.getAllData = function () {
     return {
       points: this.getData(),
@@ -1611,10 +1908,12 @@
       columnLayout: this.getColumnLayout(),
       rowLayout: this.getRowLayout(),
       timeData: this.getTimeData(),
+      notes: this.getNotes(),
       viewConfig: {
         showTimeTable: !!this.options.showTimeTable,
         showTimePicker: !!this.options.showTimePicker,
         showStatus: !!this.options.showStatus,
+        showNotes: !!this.options.showNotes,
         xLabels: this.getXLabels()
       }
     };
@@ -1639,6 +1938,10 @@
       this.setXLabels(state.viewConfig.xLabels);
     }
     if (state.timeData != null) this.setTimeData(state.timeData, { silent: true });
+    if (state.notes != null) this.setNotes(state.notes, { silent: true });
+    if (state.viewConfig && state.viewConfig.showNotes != null) {
+      this.setShowNotes(state.viewConfig.showNotes);
+    }
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
   };
@@ -2292,6 +2595,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.2.2';
+  InteractiveGrid.VERSION = '2.3.0';
   return InteractiveGrid;
 });

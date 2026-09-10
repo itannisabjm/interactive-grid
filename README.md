@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.2.2**
+**Versi: 2.3.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -25,6 +25,7 @@ Fitur utama:
 - Tabel **Waktu (Jam)** dapat ditampilkan/disembunyikan dengan `showTimeTable`; cell tabel waktu otomatis digabung mengikuti `colJoinCount`.
 - Label sumbu X dapat dioverride secara dinamis dengan `xLabels` tanpa mengubah koordinat asli.
 - Setiap cell tabel waktu dapat diisi jam. `showTimePicker: true` memakai time picker browser + input manual, sedangkan `false` memakai input teks manual berformat `HH:MM`.
+- Mendukung **catatan per koordinat** melalui `showNotes`; menu penanda otomatis menampilkan `Buat Note`, `Edit Note`, atau `Hapus Note` sesuai kondisi.
 - Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
@@ -1004,6 +1005,125 @@ const grid = new InteractiveGrid('#grafik', {
 Data waktu juga ikut masuk ke `getAllData()` / `toFullJSON()` sebagai `timeData`.
 
 
+### Catatan pada koordinat: `showNotes`
+
+Aktifkan fitur catatan dengan:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  showNotes: true
+});
+```
+
+Default-nya:
+
+```javascript
+showNotes: false
+```
+
+Jika `showNotes: true`, saat pengguna klik sebuah koordinat, popup penanda mempunyai bagian tambahan **Catatan koordinat**.
+
+Untuk koordinat yang belum memiliki catatan:
+
+```text
+Tambah tanda                  Close
+[ ● ] [ X ]
+
+Catatan koordinat
+[ Buat Note ]
+```
+
+Jika koordinat tersebut sudah memiliki catatan:
+
+```text
+Tambah tanda                  Close
+[ ● ] [ X ]
+
+Catatan koordinat
+[ Edit Note ] [ Hapus Note ]
+```
+
+`Buat Note` dan `Edit Note` membuka editor catatan di dekat koordinat yang dipilih. Tombol **Simpan** menyimpan isi catatan, sedangkan **Batal** menutup editor tanpa perubahan. `Ctrl+Enter` / `Cmd+Enter` juga dapat digunakan untuk menyimpan dan `Escape` untuk membatalkan.
+
+Catatan yang sudah disimpan ditampilkan sebagai kotak teks di dekat koordinat terkait. Catatan tidak harus berada pada koordinat yang memiliki marker ● atau X.
+
+Contoh data awal:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  showNotes: true,
+
+  notes: [
+    {
+      x: 7,
+      y: 7,
+      text: 'Bayi lahir dalam keadaan normal\npada pembukaan ke-9'
+    }
+  ]
+});
+```
+
+Ukuran tampilan dapat diatur:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  showNotes: true,
+  noteWidth: 220,
+  noteMinHeight: 86,
+  notePlaceholder: 'Tulis catatan...'
+});
+```
+
+API yang tersedia:
+
+```javascript
+grid.setNote(7, 7, 'Catatan baru');
+grid.addNote(7, 7, 'Catatan baru');      // alias
+grid.updateNote(7, 7, 'Catatan diubah'); // alias
+
+const note = grid.getNote(7, 7);
+const notes = grid.getNotes();
+
+grid.removeNote(7, 7);
+grid.setNotes([
+  { x: 3, y: 4, text: 'Catatan A' },
+  { x: 7, y: 7, text: 'Catatan B' }
+]);
+grid.clearNotes();
+
+grid.setShowNotes(false);
+grid.setShowNotes(true);
+grid.getShowNotes();
+```
+
+Perubahan catatan mengirim event DOM:
+
+```javascript
+document.querySelector('#grafik').addEventListener(
+  'interactivegrid:noteschange',
+  function (e) {
+    console.log(e.detail.reason); // add, edit, remove, setNotes, clear
+    console.log(e.detail.note);
+    console.log(e.detail.data);
+  }
+);
+```
+
+Atau callback:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  showNotes: true,
+
+  onNotesChange(notes, reason, note) {
+    console.log(notes, reason, note);
+  }
+});
+```
+
+Catatan ikut disimpan oleh `getAllData()` / `toFullJSON()` melalui properti `notes`, sedangkan status tampil/sembunyinya tersimpan sebagai `viewConfig.showNotes`.
+
+
 ### Keterangan jumlah tanda / koordinat: `showStatus`
 
 Keterangan seperti:
@@ -1244,6 +1364,11 @@ const grid = new InteractiveGrid('#grafik', {
   showTimeTable: true,
   showTimePicker: true,
   timeInputPlaceholder: 'HH:MM',
+
+  showNotes: false,
+  noteWidth: 220,
+  noteMinHeight: 86,
+  notePlaceholder: 'Tulis catatan...',
 
   showToolbar: true,
   showStatus: true, // tampilkan keterangan jumlah tanda/koordinat di toolbar
@@ -2566,7 +2691,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.2.2
+console.log(InteractiveGrid.VERSION); // 2.3.0
 ```
 
 ## Lisensi
@@ -2598,6 +2723,21 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.3.0
+- Menambahkan fitur catatan per koordinat melalui properti `showNotes`.
+- Default `showNotes: false`.
+- Jika koordinat belum memiliki catatan, popup penanda menampilkan tombol `Buat Note`.
+- Jika koordinat sudah memiliki catatan, popup menampilkan `Edit Note` dan `Hapus Note`.
+- Menambahkan editor catatan dengan tombol `Simpan` / `Batal`, shortcut `Ctrl/Cmd+Enter`, dan `Escape`.
+- Catatan yang tersimpan ditampilkan sebagai kotak teks di dekat koordinat terkait.
+- Catatan dapat dibuat pada koordinat meskipun tidak ada marker ● atau X.
+- Menambahkan opsi `notes`, `noteWidth`, `noteMinHeight`, `notePlaceholder`, dan callback `onNotesChange`.
+- Menambahkan API `setNote()`, `addNote()`, `updateNote()`, `getNote()`, `getNotes()`, `removeNote()`, `setNotes()`, `clearNotes()`, `setShowNotes()`, dan `getShowNotes()`.
+- Menambahkan event `interactivegrid:noteschange`.
+- `getAllData()` / `toFullJSON()` sekarang menyimpan `notes` dan `viewConfig.showNotes`.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.2.2
 - Pada `showTimeTable: true` dan `showTimePicker: false`, input waktu sekarang memakai lebar penuh cell tabel waktu.
