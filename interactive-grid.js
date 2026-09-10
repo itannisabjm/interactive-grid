@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.5.0
+/* InteractiveGrid v2.6.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -119,6 +119,12 @@
     showDrawControls: true,
     drawButtonText: 'Draw',
     stopDrawButtonText: 'Stop Draw',
+
+    // Jika true, user harus klik Draw / startDrawing() sebelum dapat
+    // menambahkan atau menghapus marker pada grid.
+    // Jika false, perilaku legacy tetap aktif setelah halaman dimuat.
+    clickDrawToDraw: false,
+
     drawings: [],
     onDrawingsChange: null,
     lineWidth: 4,
@@ -787,6 +793,7 @@
       interaction: chart.querySelector('.ig-interaction'),
       hoverPlus: chart.querySelector('.ig-hover-plus'),
       menu: chart.querySelector('.ig-menu'),
+      menuHeaderTitle: chart.querySelector('.ig-menu-header .ig-menu-title'),
       deleteSection: chart.querySelector('.ig-delete-section'),
       noteSection: chart.querySelector('.ig-note-section'),
       noteCreate: chart.querySelector('.ig-note-create'),
@@ -1150,6 +1157,17 @@
     return this.activeDrawingId ? this._findDrawing(this.activeDrawingId) : null;
   };
 
+  InteractiveGrid.prototype._canEditMarks = function () {
+    return !this.options.clickDrawToDraw || !!this._activeDrawing();
+  };
+
+  InteractiveGrid.prototype._updateInteractionMode = function () {
+    if (!this.dom || !this.dom.interaction) return;
+    var locked = !!this.options.clickDrawToDraw && !this._activeDrawing();
+    this.dom.interaction.classList.toggle('ig-draw-locked', locked);
+    this.el.classList.toggle('ig-draw-locked', locked);
+  };
+
   InteractiveGrid.prototype._updateDrawToolbar = function () {
     if (!this.dom || !this.dom.draw || !this.dom.stopDraw) return;
     var active = !!this._activeDrawing();
@@ -1157,6 +1175,7 @@
     this.dom.draw.setAttribute('aria-pressed', active ? 'true' : 'false');
     this.dom.draw.textContent = active ? (this.options.drawButtonText || 'Draw') + ' +' : (this.options.drawButtonText || 'Draw');
     this.dom.stopDraw.disabled = !active;
+    this._updateInteractionMode();
   };
 
   InteractiveGrid.prototype._emitDrawingsChange = function (reason, drawing) {
@@ -1396,10 +1415,23 @@
     var self = this;
     var d = this.dom;
 
-    this._bind(d.interaction, 'mousemove', function (e) { self._setHover(self._nearest(e)); });
+    this._bind(d.interaction, 'mousemove', function (e) {
+      // Hover koordinat tetap ditampilkan walaupun clickDrawToDraw=true.
+      // Yang dikunci hanya aksi tambah/hapus marker, bukan indikator persimpangan grid.
+      self._setHover(self._nearest(e));
+    });
     this._bind(d.interaction, 'mouseleave', function () { self._setHover(null); });
     this._bind(d.interaction, 'click', function (e) {
       var cell = self._nearest(e);
+
+      // Dalam mode clickDrawToDraw, marker hanya dapat dibuat setelah Draw aktif.
+      // Namun popup tetap boleh muncul jika showNotes=true agar fitur note tetap independen.
+      if (self.options.clickDrawToDraw && !self._activeDrawing()) {
+        self._setHover(cell);
+        if (self.options.showNotes) self._showMenu(cell);
+        return;
+      }
+
       self._setHover(cell);
       self._showMenu(cell);
     });
@@ -1407,6 +1439,13 @@
     this._bind(d.interaction, 'touchstart', function (e) {
       if (!e.touches || !e.touches[0]) return;
       var cell = self._nearest(e.touches[0]);
+
+      if (self.options.clickDrawToDraw && !self._activeDrawing()) {
+        if (self.options.showNotes) self._showMenu(cell);
+        e.preventDefault();
+        return;
+      }
+
       self._showMenu(cell);
       e.preventDefault();
     }, { passive: false });
@@ -1438,6 +1477,10 @@
 
       var add = e.target.closest('[data-type]');
       if (add && self.pendingCell) {
+        if (!self._canEditMarks()) {
+          self._hideMenu();
+          return;
+        }
         if (self._activeDrawing()) {
           self.addDrawingPoint(self.pendingCell.x, self.pendingCell.y, add.getAttribute('data-type'));
         } else {
@@ -1448,7 +1491,11 @@
       }
       var del = e.target.closest('[data-delete-type]');
       if (del && self.pendingCell) {
-        var type = del.getAttribute('[data-delete-type]') || del.getAttribute('data-delete-type');
+        if (!self._canEditMarks()) {
+          self._hideMenu();
+          return;
+        }
+        var type = del.getAttribute('data-delete-type');
         if (self._activeDrawing()) {
           self.removeDrawingPoint(self.activeDrawingId, self.pendingCell.x, self.pendingCell.y, type === 'all' ? undefined : type);
         } else {
@@ -1652,6 +1699,17 @@
     this.dom.deleteSection.style.display = point ? 'flex' : 'none';
     this.dom.menu.querySelector('[data-delete-type="dot"]').disabled = !hasDot;
     this.dom.menu.querySelector('[data-delete-type="x"]').disabled = !hasX;
+
+    var markerEditingAllowed = this._canEditMarks();
+    var addSection = this.dom.menu.querySelector('.ig-add-section') || this.dom.menu.querySelector('.ig-menu-section');
+    if (addSection) addSection.style.display = markerEditingAllowed ? '' : 'none';
+    this.dom.deleteSection.style.display = markerEditingAllowed && point ? '' : 'none';
+
+    // Ketika clickDrawToDraw=true dan belum ada drawing aktif, popup hanya untuk note.
+    // Sembunyikan judul "Tambah tanda" tetapi pertahankan tombol Close.
+    if (this.dom.menuHeaderTitle) {
+      this.dom.menuHeaderTitle.style.display = markerEditingAllowed ? '' : 'none';
+    }
 
     var note = this._getNoteInternal(cell.x, cell.y);
     this.dom.noteSection.style.display = this.options.showNotes ? 'flex' : 'none';
@@ -2432,6 +2490,7 @@
         showTimePicker: !!this.options.showTimePicker,
         showStatus: !!this.options.showStatus,
         showNotes: !!this.options.showNotes,
+        clickDrawToDraw: !!this.options.clickDrawToDraw,
         notePointer: !!this.options.notePointer,
         notePointerType: this.options.notePointerType,
         showNoteAnchorDot: !!this.options.showNoteAnchorDot,
@@ -2464,6 +2523,9 @@
     if (state.viewConfig && state.viewConfig.showNotes != null) {
       this.setShowNotes(state.viewConfig.showNotes);
     }
+    if (state.viewConfig && state.viewConfig.clickDrawToDraw != null) {
+      this.options.clickDrawToDraw = !!state.viewConfig.clickDrawToDraw;
+    }
     if (state.viewConfig && state.viewConfig.notePointer != null) {
       this.options.notePointer = !!state.viewConfig.notePointer;
     }
@@ -2477,6 +2539,7 @@
       this.options.notePosition = state.viewConfig.notePosition;
     }
     this._renderNotes();
+    this._updateDrawToolbar();
     if (state.drawings != null) this.setDrawings(state.drawings, { silent: true });
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
@@ -2898,6 +2961,20 @@
     return this;
   };
 
+  InteractiveGrid.prototype.setClickDrawToDraw = function (enabled) {
+    this.options.clickDrawToDraw = !!enabled;
+
+    // Saat diaktifkan, legacy edit langsung dinonaktifkan. Drawing aktif yang sudah
+    // berjalan tetap boleh diteruskan sampai Stop Draw dipilih.
+    this._hideMenu();
+    this._updateDrawToolbar();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getClickDrawToDraw = function () {
+    return !!this.options.clickDrawToDraw;
+  };
+
   InteractiveGrid.prototype.setShowStatus = function (show) {
     this.options.showStatus = !!show;
     if (this.dom && this.dom.status) {
@@ -3142,6 +3219,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.5.0';
+  InteractiveGrid.VERSION = '2.6.1';
   return InteractiveGrid;
 });
