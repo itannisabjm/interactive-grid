@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.6.0**
+**Versi: 2.6.1**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -1089,7 +1089,9 @@ Klik Draw lagi
 
 Jika `showNotes: true`, koordinat tetap dapat diklik ketika Draw belum aktif untuk membuat/edit/hapus note. Namun tombol tambah/hapus marker disembunyikan sampai drawing aktif. Dengan demikian fitur note tetap independen dari mode drawing.
 
-Saat `clickDrawToDraw: true` dan tidak ada drawing aktif, hover `+` untuk penambahan marker juga disembunyikan agar user mendapat indikasi bahwa mode gambar belum aktif.
+Saat `clickDrawToDraw: true` dan tidak ada drawing aktif, **indikator hijau pada persimpangan grid tetap ditampilkan saat hover**. Indikator ini hanya menunjukkan koordinat yang sedang ditunjuk; marker ●/X tetap tidak dapat dibuat sampai tombol `Draw` diklik.
+
+Jika koordinat diklik ketika drawing belum aktif dan `showNotes: true`, popup hanya menampilkan bagian note beserta tombol `Close`. Teks `Tambah tanda`, pilihan ●/X, dan pilihan hapus marker tidak ditampilkan. Pada koordinat tanpa note tersedia `Buat Note`; pada koordinat yang sudah memiliki note tersedia `Edit Note` dan `Hapus Note`.
 
 Pengaturan dapat diubah saat runtime:
 
@@ -2958,7 +2960,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.6.0
+console.log(InteractiveGrid.VERSION); // 2.6.1
 ```
 
 ## Lisensi
@@ -2990,6 +2992,16 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.6.1
+- Pada `clickDrawToDraw: true`, indikator hijau di persimpangan grid tetap tampil saat hover walaupun drawing belum aktif.
+- Klik koordinat sebelum menekan `Draw` tetap tidak dapat membuat atau menghapus marker ●/X.
+- Jika `showNotes: true`, popup pada kondisi terkunci sekarang hanya menampilkan fitur note dan tombol `Close`.
+- Teks `Tambah tanda`, pilihan ●/X, serta bagian hapus marker disembunyikan sampai drawing aktif.
+- Koordinat tanpa note menampilkan `Buat Note`; koordinat dengan note menampilkan `Edit Note` dan `Hapus Note`.
+- Setelah `Draw` aktif, popup marker kembali tampil normal seperti sebelumnya.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.6.0
 - Menambahkan properti `clickDrawToDraw` dengan default `false`.

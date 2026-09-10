@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.6.0
+/* InteractiveGrid v2.6.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -793,6 +793,7 @@
       interaction: chart.querySelector('.ig-interaction'),
       hoverPlus: chart.querySelector('.ig-hover-plus'),
       menu: chart.querySelector('.ig-menu'),
+      menuHeaderTitle: chart.querySelector('.ig-menu-header .ig-menu-title'),
       deleteSection: chart.querySelector('.ig-delete-section'),
       noteSection: chart.querySelector('.ig-note-section'),
       noteCreate: chart.querySelector('.ig-note-create'),
@@ -1415,10 +1416,8 @@
     var d = this.dom;
 
     this._bind(d.interaction, 'mousemove', function (e) {
-      if (self.options.clickDrawToDraw && !self._activeDrawing()) {
-        self._setHover(null);
-        return;
-      }
+      // Hover koordinat tetap ditampilkan walaupun clickDrawToDraw=true.
+      // Yang dikunci hanya aksi tambah/hapus marker, bukan indikator persimpangan grid.
       self._setHover(self._nearest(e));
     });
     this._bind(d.interaction, 'mouseleave', function () { self._setHover(null); });
@@ -1428,7 +1427,7 @@
       // Dalam mode clickDrawToDraw, marker hanya dapat dibuat setelah Draw aktif.
       // Namun popup tetap boleh muncul jika showNotes=true agar fitur note tetap independen.
       if (self.options.clickDrawToDraw && !self._activeDrawing()) {
-        self._setHover(null);
+        self._setHover(cell);
         if (self.options.showNotes) self._showMenu(cell);
         return;
       }
@@ -1705,6 +1704,12 @@
     var addSection = this.dom.menu.querySelector('.ig-add-section') || this.dom.menu.querySelector('.ig-menu-section');
     if (addSection) addSection.style.display = markerEditingAllowed ? '' : 'none';
     this.dom.deleteSection.style.display = markerEditingAllowed && point ? '' : 'none';
+
+    // Ketika clickDrawToDraw=true dan belum ada drawing aktif, popup hanya untuk note.
+    // Sembunyikan judul "Tambah tanda" tetapi pertahankan tombol Close.
+    if (this.dom.menuHeaderTitle) {
+      this.dom.menuHeaderTitle.style.display = markerEditingAllowed ? '' : 'none';
+    }
 
     var note = this._getNoteInternal(cell.x, cell.y);
     this.dom.noteSection.style.display = this.options.showNotes ? 'flex' : 'none';
@@ -2962,7 +2967,6 @@
     // Saat diaktifkan, legacy edit langsung dinonaktifkan. Drawing aktif yang sudah
     // berjalan tetap boleh diteruskan sampai Stop Draw dipilih.
     this._hideMenu();
-    this._setHover(null);
     this._updateDrawToolbar();
     return this;
   };
@@ -3215,6 +3219,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.6.0';
+  InteractiveGrid.VERSION = '2.6.1';
   return InteractiveGrid;
 });
