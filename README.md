@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.2.1**
+**Versi: 2.2.2**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -786,6 +786,19 @@ Format yang digunakan adalah:
 HH:MM
 ```
 
+Contoh dengan kolom sempit:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  colWidth: 24,
+  colJoinCount: 1,
+  showTimeTable: true,
+  showTimePicker: false
+});
+```
+
+Pada kondisi ini input manual tetap memakai seluruh lebar `24px`. Ukuran font juga diperkecil otomatis untuk cell sempit agar teks `HH:MM` lebih mudah terlihat.
+
 contoh:
 
 ```text
@@ -830,7 +843,7 @@ Jika:
 showTimePicker: false
 ```
 
-plugin menggunakan input teks biasa. Pengguna mengisi jam dengan keyboard.
+plugin menggunakan input teks biasa. Pada mode ini, **lebar input dibuat 100% sama dengan lebar cell tabel waktu**, tanpa padding horizontal pada wrapper. Jadi border kiri dan kanan input tepat mengikuti batas cell, termasuk ketika `colWidth` dibuat kecil. Pengguna mengisi jam dengan keyboard.
 
 Setelah **dua digit pertama** diketik, tanda `:` otomatis ditambahkan:
 
@@ -2553,7 +2566,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.2.1
+console.log(InteractiveGrid.VERSION); // 2.2.2
 ```
 
 ## Lisensi
@@ -2585,6 +2598,15 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.2.2
+- Pada `showTimeTable: true` dan `showTimePicker: false`, input waktu sekarang memakai lebar penuh cell tabel waktu.
+- Padding horizontal wrapper dihilangkan pada mode manual sehingga border kiri/kanan input tepat mengikuti batas cell.
+- Border radius input manual dibuat `0` agar terlihat menyatu dengan tabel waktu.
+- Ukuran font input manual otomatis mengecil pada cell sempit, termasuk konfigurasi seperti `colWidth: 24`, agar format `HH:MM` lebih mudah terlihat.
+- Mode time picker (`showTimePicker: true`) tidak berubah.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.2.1
 - Menambahkan tombol teks **Close** di kanan atas popup pemilihan penanda.

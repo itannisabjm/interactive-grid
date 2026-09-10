@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.2.1 - framework agnostic */
+/* InteractiveGrid v2.2.2 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -211,6 +211,24 @@
   padding: 4px 6px;
   outline: none;
   box-sizing: border-box;
+}
+
+/* Mode manual: input mengisi 100% cell tabel waktu.
+   Border kiri/kanan tepat mengikuti batas cell, tanpa padding wrapper. */
+.ig-time-input-wrap-manual {
+  padding: 0;
+}
+
+.ig-time-input-manual {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  margin: 0;
+  padding-left: 1px;
+  padding-right: 1px;
+  border-radius: 0;
+  text-align: center;
+  letter-spacing: -0.1px;
 }
 
 .ig-time-input:focus {

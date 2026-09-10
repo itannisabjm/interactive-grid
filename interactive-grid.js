@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.2.1
+/* InteractiveGrid v2.2.2
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -449,14 +449,14 @@
       var left = this._xPositions[startIndex];
 
       var wrap = document.createElement('div');
-      wrap.className = 'ig-time-input-wrap';
+      wrap.className = 'ig-time-input-wrap' + (this.options.showTimePicker ? '' : ' ig-time-input-wrap-manual');
       wrap.style.left = left + 'px';
       wrap.style.width = group.width + 'px';
       wrap.setAttribute('data-start-column', group.startColumn);
       wrap.setAttribute('data-end-column', group.endColumn);
 
       var input = document.createElement('input');
-      input.className = 'ig-time-input';
+      input.className = 'ig-time-input' + (this.options.showTimePicker ? '' : ' ig-time-input-manual');
       input.type = this.options.showTimePicker ? 'time' : 'text';
       input.value = this.timeData[group.startColumn] || '';
       input.setAttribute('data-start-column', group.startColumn);
@@ -469,6 +469,14 @@
         input.placeholder = this.options.timeInputPlaceholder || 'HH:MM';
         input.maxLength = 5;
         input.setAttribute('pattern', '[0-2][0-9]:[0-5][0-9]');
+
+        // Mode manual memakai seluruh lebar cell. Untuk cell sangat sempit,
+        // kecilkan font otomatis agar format HH:MM tetap terlihat sebanyak mungkin.
+        var manualFontSize = 13;
+        if (group.width < 44) manualFontSize = 11;
+        if (group.width < 34) manualFontSize = 9;
+        if (group.width < 28) manualFontSize = 8;
+        input.style.fontSize = manualFontSize + 'px';
       }
 
       wrap.appendChild(input);
@@ -2284,6 +2292,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.2.1';
+  InteractiveGrid.VERSION = '2.2.2';
   return InteractiveGrid;
 });
