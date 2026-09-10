@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.5.0**
+**Versi: 2.7.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -28,6 +28,8 @@ Fitur utama:
 - Mendukung **catatan per koordinat** melalui `showNotes`; menu penanda otomatis menampilkan `Buat Note`, `Edit Note`, atau `Hapus Note` sesuai kondisi.
 - Note dapat menunjukkan koordinat asal dengan **triangle pointer**, garis, atau titik anchor; default menggunakan triangle + anchor dot.
 - Mendukung **multi drawing / multi series**: tombol `Draw` membuat seri baru sehingga garis antar seri tidak saling terhubung.
+- Properti `clickDrawToDraw` menentukan apakah user wajib menekan `Draw` sebelum dapat menambah/menghapus marker.
+- Posisi toolbar dapat diatur dengan `toolbarAlign: 'left' | 'center' | 'right'`; default tetap `left`.
 - Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
@@ -1007,6 +1009,57 @@ const grid = new InteractiveGrid('#grafik', {
 Data waktu juga ikut masuk ke `getAllData()` / `toFullJSON()` sebagai `timeData`.
 
 
+### Posisi toolbar: `toolbarAlign`
+
+Posisi tombol dan keterangan pada toolbar dapat diatur dengan properti `toolbarAlign`.
+
+Default:
+
+```javascript
+toolbarAlign: 'left'
+```
+
+Jadi jika properti ini tidak diatur, toolbar tetap berada di sebelah kiri seperti sebelumnya.
+
+Untuk menempatkan toolbar di tengah:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  toolbarAlign: 'center'
+});
+```
+
+Untuk posisi kanan:
+
+```javascript
+toolbarAlign: 'right'
+```
+
+Nilai yang tersedia adalah:
+
+```text
+left
+center
+right
+```
+
+Seluruh isi toolbar dipindahkan sebagai satu grup, termasuk tombol `Draw`, `Stop Draw`, `Undo`, `Hapus Semua`, dan keterangan status jika `showStatus: true`.
+
+Posisi juga dapat diubah saat runtime:
+
+```javascript
+grid.setToolbarAlign('center');
+grid.setToolbarAlign('left');
+grid.setToolbarAlign('right');
+```
+
+Membaca posisi toolbar:
+
+```javascript
+const posisi = grid.getToolbarAlign();
+```
+
+
 ### Multi drawing / multi series
 
 Plugin sekarang mendukung lebih dari satu rangkaian garis pada grid yang sama.
@@ -1045,8 +1098,62 @@ Default kontrol:
 ```javascript
 showDrawControls: true,
 drawButtonText: 'Draw',
-stopDrawButtonText: 'Stop Draw'
+stopDrawButtonText: 'Stop Draw',
+clickDrawToDraw: false
 ```
+
+#### Wajib klik Draw: `clickDrawToDraw`
+
+Default:
+
+```javascript
+clickDrawToDraw: false
+```
+
+Dengan default `false`, perilakunya sama seperti versi sebelumnya: setelah halaman dimuat, user dapat langsung klik koordinat dan membuat marker meskipun belum menekan tombol `Draw`. Marker tersebut masuk ke data interaktif/legacy.
+
+Jika ingin user **wajib menekan Draw lebih dulu**, gunakan:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  clickDrawToDraw: true
+});
+```
+
+Dalam mode ini:
+
+```text
+Halaman dimuat
+  -> belum bisa membuat marker
+
+Klik Draw
+  -> drawing baru aktif
+  -> koordinat dapat dipilih
+  -> marker dan garis masuk ke drawing aktif
+
+Klik Stop Draw
+  -> pembuatan marker kembali dikunci
+
+Klik Draw lagi
+  -> drawing baru dibuat
+  -> garis drawing baru tidak terhubung ke drawing sebelumnya
+```
+
+Jika `showNotes: true`, koordinat tetap dapat diklik ketika Draw belum aktif untuk membuat/edit/hapus note. Namun tombol tambah/hapus marker disembunyikan sampai drawing aktif. Dengan demikian fitur note tetap independen dari mode drawing.
+
+Saat `clickDrawToDraw: true` dan tidak ada drawing aktif, **indikator hijau pada persimpangan grid tetap ditampilkan saat hover**. Indikator ini hanya menunjukkan koordinat yang sedang ditunjuk; marker ●/X tetap tidak dapat dibuat sampai tombol `Draw` diklik.
+
+Jika koordinat diklik ketika drawing belum aktif dan `showNotes: true`, popup hanya menampilkan bagian note beserta tombol `Close`. Teks `Tambah tanda`, pilihan ●/X, dan pilihan hapus marker tidak ditampilkan. Pada koordinat tanpa note tersedia `Buat Note`; pada koordinat yang sudah memiliki note tersedia `Edit Note` dan `Hapus Note`.
+
+Pengaturan dapat diubah saat runtime:
+
+```javascript
+grid.setClickDrawToDraw(true);
+grid.setClickDrawToDraw(false);
+
+const wajibDraw = grid.getClickDrawToDraw();
+```
+
 
 #### Style berbeda per drawing
 
@@ -2905,7 +3012,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.5.0
+console.log(InteractiveGrid.VERSION); // 2.7.0
 ```
 
 ## Lisensi
@@ -2937,6 +3044,38 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.7.0
+- Menambahkan properti `toolbarAlign`.
+- Mendukung posisi `left`, `center`, dan `right`.
+- Default adalah `toolbarAlign: 'left'`, sehingga tampilan lama tidak berubah.
+- `toolbarAlign: 'center'` menempatkan seluruh isi toolbar di tengah.
+- Menambahkan API `setToolbarAlign()` dan `getToolbarAlign()`.
+- `getAllData()` / `toFullJSON()` menyimpan `viewConfig.toolbarAlign`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
+
+### v2.6.1
+- Pada `clickDrawToDraw: true`, indikator hijau di persimpangan grid tetap tampil saat hover walaupun drawing belum aktif.
+- Klik koordinat sebelum menekan `Draw` tetap tidak dapat membuat atau menghapus marker ●/X.
+- Jika `showNotes: true`, popup pada kondisi terkunci sekarang hanya menampilkan fitur note dan tombol `Close`.
+- Teks `Tambah tanda`, pilihan ●/X, serta bagian hapus marker disembunyikan sampai drawing aktif.
+- Koordinat tanpa note menampilkan `Buat Note`; koordinat dengan note menampilkan `Edit Note` dan `Hapus Note`.
+- Setelah `Draw` aktif, popup marker kembali tampil normal seperti sebelumnya.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
+
+### v2.6.0
+- Menambahkan properti `clickDrawToDraw` dengan default `false`.
+- Jika `clickDrawToDraw: false`, perilaku tetap seperti sebelumnya: user dapat langsung menambahkan marker setelah halaman dimuat tanpa menekan Draw.
+- Jika `clickDrawToDraw: true`, penambahan/penghapusan marker hanya tersedia ketika ada drawing aktif setelah tombol `Draw` diklik.
+- Setelah `Stop Draw`, marker kembali terkunci sampai `Draw` diklik lagi.
+- Hover plus disembunyikan ketika mode wajib Draw sedang terkunci.
+- Jika `showNotes: true`, popup note tetap dapat digunakan walaupun drawing belum aktif; bagian marker disembunyikan.
+- Menambahkan API `setClickDrawToDraw()` dan `getClickDrawToDraw()`.
+- `getAllData()` / `toFullJSON()` menyimpan `viewConfig.clickDrawToDraw` dan `setAllData()` / `fromFullJSON()` memuatnya kembali.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.5.0
 - Menambahkan multi drawing / multi series yang memungkinkan beberapa garis terpisah dalam satu grid.
