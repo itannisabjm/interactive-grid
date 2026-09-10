@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.2.2 - framework agnostic */
+/* InteractiveGrid v2.3.0 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -254,6 +254,105 @@
   pointer-events: none;
   overflow: visible;
   z-index: 5;
+}
+
+.ig-notes-layer {
+  position: absolute;
+  left: var(--ig-grid-left);
+  top: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 6;
+}
+
+.ig-note-card {
+  position: absolute;
+  background: rgba(255,255,255,.96);
+  border: 1px solid #c9c9c9;
+  box-shadow: 0 2px 8px rgba(0,0,0,.14);
+  padding: 9px 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.ig-note-section {
+  display: none;
+}
+
+.ig-note-action {
+  min-height: 32px;
+  padding: 0 9px;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.ig-note-action:hover {
+  background: #f2f2f2;
+}
+
+.ig-note-delete {
+  border-color: #d33;
+  color: #b11;
+}
+
+.ig-note-editor {
+  position: absolute;
+  display: none;
+  z-index: 30;
+  background: #fff;
+  border: 1px solid #aaa;
+  box-shadow: 0 4px 14px rgba(0,0,0,.2);
+  padding: 8px;
+}
+
+.ig-note-editor.ig-show {
+  display: block;
+}
+
+.ig-note-editor-title {
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ig-note-editor-text {
+  width: 100%;
+  min-height: 86px;
+  resize: vertical;
+  border: 1px solid #bbb;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  box-sizing: border-box;
+}
+
+.ig-note-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.ig-note-editor-actions button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #aaa;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ig-note-save {
+  font-weight: 600;
 }
 
 .ig-interaction {
