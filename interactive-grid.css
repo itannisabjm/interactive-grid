@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.4.0 - framework agnostic */
+/* InteractiveGrid v2.5.0 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -29,6 +29,17 @@
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 10px;
+}
+
+.ig-draw.ig-draw-active {
+  font-weight: 700;
+  border-color: #222;
+  box-shadow: inset 0 0 0 1px #222;
+}
+
+.ig-stop-draw:disabled {
+  opacity: .45;
+  cursor: default;
 }
 
 .ig-toolbar button {

@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.4.0**
+**Versi: 2.5.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -27,6 +27,7 @@ Fitur utama:
 - Setiap cell tabel waktu dapat diisi jam. `showTimePicker: true` memakai time picker browser + input manual, sedangkan `false` memakai input teks manual berformat `HH:MM`.
 - Mendukung **catatan per koordinat** melalui `showNotes`; menu penanda otomatis menampilkan `Buat Note`, `Edit Note`, atau `Hapus Note` sesuai kondisi.
 - Note dapat menunjukkan koordinat asal dengan **triangle pointer**, garis, atau titik anchor; default menggunakan triangle + anchor dot.
+- Mendukung **multi drawing / multi series**: tombol `Draw` membuat seri baru sehingga garis antar seri tidak saling terhubung.
 - Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
@@ -1004,6 +1005,131 @@ const grid = new InteractiveGrid('#grafik', {
 ```
 
 Data waktu juga ikut masuk ke `getAllData()` / `toFullJSON()` sebagai `timeData`.
+
+
+### Multi drawing / multi series
+
+Plugin sekarang mendukung lebih dari satu rangkaian garis pada grid yang sama.
+
+Toolbar memiliki kontrol:
+
+```text
+[ Draw ] [ Stop Draw ] [ Undo ] [ Hapus Semua ]
+```
+
+Klik `Draw` membuat drawing/seri baru dan langsung mengaktifkannya. Semua marker yang dipilih sesudah itu masuk ke drawing aktif dan hanya terhubung dengan titik di drawing yang sama.
+
+Jika `Draw` diklik lagi ketika drawing masih aktif, drawing lama tetap disimpan dan plugin langsung membuat drawing baru. Dengan demikian garis baru **tidak terhubung** ke garis sebelumnya.
+
+Contoh alur:
+
+```text
+Klik Draw
+  -> draw-1 aktif
+  -> pilih X di (2,6)
+  -> pilih X di (6,8)
+
+Klik Draw lagi
+  -> draw-2 aktif
+  -> pilih dot di (2,3)
+  -> pilih dot di (6,2)
+  -> pilih dot di (9,4)
+```
+
+Hasilnya terdiri dari dua jalur terpisah.
+
+`Stop Draw` mengakhiri mode drawing. Setelah dihentikan, klik koordinat kembali menggunakan data interaktif lama/legacy seperti versi sebelumnya.
+
+Default kontrol:
+
+```javascript
+showDrawControls: true,
+drawButtonText: 'Draw',
+stopDrawButtonText: 'Stop Draw'
+```
+
+#### Style berbeda per drawing
+
+Setiap drawing dapat memiliki style sendiri:
+
+```javascript
+const greenId = grid.startDrawing({
+  lineColor: '#18a94d',
+  lineWidth: 4,
+  xColor: '#111111',
+  xSize: 13
+});
+```
+
+Kemudian buat drawing kedua:
+
+```javascript
+const blackId = grid.startDrawing({
+  lineColor: '#111111',
+  lineWidth: 3,
+  dotColor: '#111111',
+  dotSize: 10
+});
+```
+
+API utama:
+
+```javascript
+const id = grid.startDrawing();
+grid.stopDrawing();
+
+grid.activateDrawing(id);
+grid.getActiveDrawingId();
+
+grid.addDrawingPoint(2, 6, 'x');
+grid.addDrawingPoint(6, 8, 'x');
+
+grid.removeDrawingPoint(id, 6, 8, 'x');
+
+grid.getDrawing(id);
+grid.getDrawings();
+
+grid.updateDrawing(id, {
+  lineColor: '#22a652',
+  lineWidth: 4
+});
+
+grid.removeDrawing(id);
+grid.clearDrawings();
+```
+
+Data drawing berbentuk:
+
+```javascript
+{
+  id: 'draw-1',
+  lineColor: '#18a94d',
+  lineWidth: 4,
+  points: [
+    { x: 2, y: 6, types: ['x'] },
+    { x: 6, y: 8, types: ['x'] }
+  ]
+}
+```
+
+Perubahan drawing mengirim event:
+
+```javascript
+document.querySelector('#grafik').addEventListener(
+  'interactivegrid:drawingschange',
+  function (e) {
+    console.log(e.detail.reason);
+    console.log(e.detail.activeDrawingId);
+    console.log(e.detail.drawings);
+  }
+);
+```
+
+Callback juga tersedia melalui `onDrawingsChange`.
+
+`Undo` sekarang menyimpan snapshot data legacy **dan seluruh drawings**, sehingga penambahan/penghapusan titik drawing juga dapat di-undo. `Hapus Semua` menghapus data interaktif legacy dan seluruh drawings, tetapi tidak menghapus permanent line, note, atau data waktu.
+
+`getAllData()` / `toFullJSON()` menyertakan `drawings` agar seluruh seri dapat disimpan dan dimuat kembali.
 
 
 ### Catatan pada koordinat: `showNotes`
@@ -2779,7 +2905,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.4.0
+console.log(InteractiveGrid.VERSION); // 2.5.0
 ```
 
 ## Lisensi
@@ -2811,6 +2937,20 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.5.0
+- Menambahkan multi drawing / multi series yang memungkinkan beberapa garis terpisah dalam satu grid.
+- Menambahkan tombol `Draw` dan `Stop Draw` pada toolbar.
+- Klik `Draw` selalu membuat drawing baru; drawing sebelumnya tidak akan tersambung dengan drawing baru.
+- Marker yang dipilih saat drawing aktif masuk ke drawing aktif, bukan ke jalur legacy.
+- Setiap drawing mendukung `lineColor`, `lineWidth`, warna/ukuran dot dan X, serta stroke marker sendiri.
+- Menambahkan API `startDrawing()`, `stopDrawing()`, `activateDrawing()`, `getActiveDrawingId()`, `getDrawing()`, `getDrawings()`, `setDrawings()`, `addDrawingPoint()`, `removeDrawingPoint()`, `updateDrawing()`, `removeDrawing()`, dan `clearDrawings()`.
+- Menambahkan event `interactivegrid:drawingschange` dan callback `onDrawingsChange`.
+- `Undo` sekarang menyimpan snapshot legacy points + drawings + drawing aktif.
+- `Hapus Semua` menghapus seluruh data interaktif legacy dan drawings tanpa menghapus permanent line, note, atau tabel waktu.
+- `getAllData()` / `toFullJSON()` sekarang menyertakan `drawings`.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.4.0
 - Menambahkan penanda hubungan antara note dan titik koordinat.

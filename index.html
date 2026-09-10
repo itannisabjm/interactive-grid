@@ -49,9 +49,9 @@
 
       notes: [
         {
-          x: 7,
+          x: 22,
           y: 7,
-          text: 'Bayi lahir dalam keadaan normal\npada pembukaan ke-9'
+          text: 'Catatan bisa ditambahkan\ndi dalam tabel'
         }
       ],
 
@@ -64,7 +64,7 @@
       noteAnchorDotColor: '#111111',
       noteAnchorDotSize: 4,
 
-      notePosition: 'auto',
+      notePosition: 'right',
 
       verticalTexts: [
         {
@@ -79,27 +79,27 @@
     });
 
     // contoh data awal
-    grid.addPoint(1, 4, 'dot');
-    grid.addPoint(3, 7, 'x');
-    grid.addPoint(5, 5, 'dot');
+    // grid.addPoint(1, 4, 'dot');
+    // grid.addPoint(3, 7, 'x');
+    // grid.addPoint(5, 5, 'dot');
 
     grid.addPermanentLine({
       id: 'waspada',
 
       from: {
-        x: 2,
-        y: 2,
+        x: 0,
+        y: 4,
         type: 'dot'
       },
 
       to: {
-        x: 8,
-        y: 8,
+        x: 12,
+        y: 10,
         type: 'x'
       },
 
       lineColor: '#FF0000',
-      lineWidth: 4,
+      lineWidth: 2,
 
       // marker permanent line
       markColor: '#FF0000',
@@ -109,8 +109,38 @@
 
       text: 'waspada',
       textColor: '#111111',
-      textSize: 34,
-      textOffset: 26
+      textSize: 24,
+      textOffset: 16
+    });
+
+    grid.addPermanentLine({
+      id: 'bertindak',
+
+      from: {
+        x: 8,
+        y: 4,
+        type: 'dot'
+      },
+
+      to: {
+        x: 20,
+        y: 10,
+        type: 'x'
+      },
+
+      lineColor: '#FF0000',
+      lineWidth: 2,
+
+      // marker permanent line
+      markColor: '#FF0000',
+      dotSize: 5,
+      xSize: 5,
+      markStrokeWidth: 3,
+
+      text: 'bertindak',
+      textColor: '#111111',
+      textSize: 24,
+      textOffset: 16
     });
   </script>
 </body>
