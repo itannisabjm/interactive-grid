@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.8.1
+/* InteractiveGrid v2.9.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -74,6 +74,16 @@
     rowsConfig: null,
     rowHeights: null,
     rowWidths: null,
+
+    // Warna background cell grid. Default tidak ada warna.
+    // Prioritas jika bertumpuk: cellColors > rowColors > columnColors.
+    // columnColors: { 1: '#fff3cd', 3: '#d1ecf1' }
+    // rowColors:    { 1: '#f8d7da', 2: '#d4edda' }
+    // cellColors:   { '3,2': '#ffd966' } // key = column,row
+    columnColors: null,
+    rowColors: null,
+    cellColors: null,
+    onCellColorsChange: null,
 
     xAxisTitle: 'Waktu',
     xAxisSubtitle: '(Jam)',
@@ -309,6 +319,14 @@
     this._loadRowHeightOverrides(this.options.rowWidths);
     this._loadRowHeightOverrides(this.options.rowHeights);
     this._loadRowHeightOverrides(this.options.rowsConfig);
+
+    // Warna background cell/baris/kolom.
+    this._columnColors = {};
+    this._rowColors = {};
+    this._cellColors = {};
+    this._loadColumnColors(this.options.columnColors);
+    this._loadRowColors(this.options.rowColors);
+    this._loadCellColors(this.options.cellColors);
 
     // Alias opsi lama -> nama baru, tanpa merusak implementasi lama.
     if (options && options.dotSize == null && options.markSize != null) this.options.dotSize = Number(options.markSize);
@@ -616,6 +634,167 @@
     return this;
   };
 
+  InteractiveGrid.prototype._normalizeGridColor = function (color) {
+    if (color == null) return null;
+    color = String(color).trim();
+    if (!color || color.toLowerCase() === 'transparent' || color.toLowerCase() === 'none') return null;
+    return color;
+  };
+
+  InteractiveGrid.prototype._loadColumnColors = function (source) {
+    if (source == null) return;
+    var self = this;
+    var maxColumn = Math.max(0, Number(this.options.columns) - 1);
+
+    if (Array.isArray(source)) {
+      source.forEach(function (value, index) {
+        var column = index + 1;
+        var color = self._normalizeGridColor(value && typeof value === 'object' ? value.color : value);
+        if (column >= 1 && column <= maxColumn && color) self._columnColors[column] = color;
+      });
+      return;
+    }
+
+    if (typeof source === 'object') {
+      Object.keys(source).forEach(function (key) {
+        var column = Number(key);
+        var value = source[key];
+        var color = self._normalizeGridColor(value && typeof value === 'object' ? value.color : value);
+        if (Number.isInteger(column) && column >= 1 && column <= maxColumn && color) {
+          self._columnColors[column] = color;
+        }
+      });
+    }
+  };
+
+  InteractiveGrid.prototype._loadRowColors = function (source) {
+    if (source == null) return;
+    var self = this;
+    var maxRow = Math.max(0, Number(this.options.rows) - 1);
+
+    if (Array.isArray(source)) {
+      source.forEach(function (value, index) {
+        var row = index + 1;
+        var color = self._normalizeGridColor(value && typeof value === 'object' ? value.color : value);
+        if (row >= 1 && row <= maxRow && color) self._rowColors[row] = color;
+      });
+      return;
+    }
+
+    if (typeof source === 'object') {
+      Object.keys(source).forEach(function (key) {
+        var row = Number(key);
+        var value = source[key];
+        var color = self._normalizeGridColor(value && typeof value === 'object' ? value.color : value);
+        if (Number.isInteger(row) && row >= 1 && row <= maxRow && color) {
+          self._rowColors[row] = color;
+        }
+      });
+    }
+  };
+
+  InteractiveGrid.prototype._loadCellColors = function (source) {
+    if (source == null) return;
+    var self = this;
+    var maxColumn = Math.max(0, Number(this.options.columns) - 1);
+    var maxRow = Math.max(0, Number(this.options.rows) - 1);
+
+    if (Array.isArray(source)) {
+      source.forEach(function (item) {
+        if (!item || typeof item !== 'object') return;
+        var column = Number(item.column != null ? item.column : item.col);
+        var row = Number(item.row);
+        var color = self._normalizeGridColor(item.color);
+        if (Number.isInteger(column) && Number.isInteger(row) &&
+            column >= 1 && column <= maxColumn && row >= 1 && row <= maxRow && color) {
+          self._cellColors[column + ',' + row] = color;
+        }
+      });
+      return;
+    }
+
+    if (typeof source === 'object') {
+      Object.keys(source).forEach(function (key) {
+        var parts = String(key).split(',');
+        if (parts.length !== 2) return;
+        var column = Number(parts[0]);
+        var row = Number(parts[1]);
+        var value = source[key];
+        var color = self._normalizeGridColor(value && typeof value === 'object' ? value.color : value);
+        if (Number.isInteger(column) && Number.isInteger(row) &&
+            column >= 1 && column <= maxColumn && row >= 1 && row <= maxRow && color) {
+          self._cellColors[column + ',' + row] = color;
+        }
+      });
+    }
+  };
+
+  InteractiveGrid.prototype._validateVisualColumn = function (column, method) {
+    column = Number(column);
+    var max = Math.max(0, Number(this.options.columns) - 1);
+    if (!Number.isInteger(column) || column < 1 || column > max) {
+      throw new Error('InteractiveGrid.' + method + ': column harus 1 sampai ' + max + '.');
+    }
+    return column;
+  };
+
+  InteractiveGrid.prototype._validateVisualRow = function (row, method) {
+    row = Number(row);
+    var max = Math.max(0, Number(this.options.rows) - 1);
+    if (!Number.isInteger(row) || row < 1 || row > max) {
+      throw new Error('InteractiveGrid.' + method + ': row harus 1 sampai ' + max + '.');
+    }
+    return row;
+  };
+
+  InteractiveGrid.prototype._resolvedCellColor = function (column, row) {
+    var key = column + ',' + row;
+    if (this._cellColors[key]) return this._cellColors[key];
+    if (this._rowColors[row]) return this._rowColors[row];
+    if (this._columnColors[column]) return this._columnColors[column];
+    return null;
+  };
+
+  InteractiveGrid.prototype._renderCellColors = function () {
+    if (!this.dom || !this.dom.cellColorsLayer) return this;
+    var layer = this.dom.cellColorsLayer;
+    layer.innerHTML = '';
+
+    var maxColumn = Math.max(0, this.options.columns - 1);
+    var maxRow = Math.max(0, this.options.rows - 1);
+
+    for (var column = 1; column <= maxColumn; column++) {
+      for (var row = 1; row <= maxRow; row++) {
+        var color = this._resolvedCellColor(column, row);
+        if (!color) continue;
+
+        var cell = document.createElement('span');
+        cell.className = 'ig-cell-color';
+        cell.setAttribute('data-column', column);
+        cell.setAttribute('data-row', row);
+        cell.style.left = this._xPositions[column - 1] + 'px';
+        cell.style.top = this._yPositions[row] + 'px';
+        cell.style.width = this._columnWidths[column - 1] + 'px';
+        cell.style.height = this._rowHeights[row - 1] + 'px';
+        cell.style.backgroundColor = color;
+        layer.appendChild(cell);
+      }
+    }
+    return this;
+  };
+
+  InteractiveGrid.prototype._emitCellColorsChange = function (reason, detail) {
+    var payload = {
+      reason: reason,
+      detail: detail || null,
+      colors: this.getGridColors()
+    };
+    this.el.dispatchEvent(new CustomEvent('interactivegrid:cellcolorschange', { detail: payload }));
+    if (typeof this.options.onCellColorsChange === 'function') {
+      this.options.onCellColorsChange(payload.colors, reason, payload.detail);
+    }
+  };
+
   InteractiveGrid.prototype._rowNumberFromKey = function (key, isArray) {
     var n = Number(key);
     if (!Number.isInteger(n)) return null;
@@ -749,7 +928,7 @@
     chart.innerHTML =
       '<div class="ig-vertical-texts" aria-hidden="true"></div>' +
       '<div class="ig-y-labels"></div>' +
-      '<div class="ig-grid"></div>' +
+      '<div class="ig-grid"><div class="ig-cell-colors" aria-hidden="true"></div></div>' +
       '<div class="ig-x-labels"></div>' +
       '<div class="ig-time-label"></div>' +
       '<div class="ig-time-cells"></div>' +
@@ -804,6 +983,7 @@
       scroll: scroll,
       chart: chart,
       grid: chart.querySelector('.ig-grid'),
+      cellColorsLayer: chart.querySelector('.ig-cell-colors'),
       verticalTexts: chart.querySelector('.ig-vertical-texts'),
       yLabels: chart.querySelector('.ig-y-labels'),
       xLabels: chart.querySelector('.ig-x-labels'),
@@ -924,6 +1104,7 @@
 
     this._renderColumnGuides();
     this._renderRowGuides();
+    this._renderCellColors();
   };
 
   InteractiveGrid.prototype._normalizeVerticalText = function (item, fallbackId) {
@@ -2531,6 +2712,144 @@
     return !!this.options.showNotes;
   };
 
+  InteractiveGrid.prototype.setCellColor = function (column, row, color) {
+    column = this._validateVisualColumn(column, 'setCellColor');
+    row = this._validateVisualRow(row, 'setCellColor');
+    color = this._normalizeGridColor(color);
+    var key = column + ',' + row;
+
+    if (color) this._cellColors[key] = color;
+    else delete this._cellColors[key];
+
+    this._renderCellColors();
+    this._emitCellColorsChange(color ? 'setCellColor' : 'removeCellColor', { column: column, row: row, color: color });
+    return this;
+  };
+
+  InteractiveGrid.prototype.removeCellColor = function (column, row) {
+    return this.setCellColor(column, row, null);
+  };
+
+  InteractiveGrid.prototype.getCellColor = function (column, row) {
+    column = this._validateVisualColumn(column, 'getCellColor');
+    row = this._validateVisualRow(row, 'getCellColor');
+    return this._resolvedCellColor(column, row);
+  };
+
+  InteractiveGrid.prototype.getCellColors = function () {
+    var out = {};
+    var keys = Object.keys(this._cellColors);
+    for (var i = 0; i < keys.length; i++) out[keys[i]] = this._cellColors[keys[i]];
+    return out;
+  };
+
+  InteractiveGrid.prototype.setCellColors = function (data, options) {
+    options = options || {};
+    this._cellColors = {};
+    this._loadCellColors(data);
+    this._renderCellColors();
+    if (!options.silent) this._emitCellColorsChange('setCellColors', null);
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearCellColors = function (options) {
+    return this.setCellColors({}, options);
+  };
+
+  InteractiveGrid.prototype.setRowColor = function (row, color) {
+    row = this._validateVisualRow(row, 'setRowColor');
+    color = this._normalizeGridColor(color);
+    if (color) this._rowColors[row] = color;
+    else delete this._rowColors[row];
+    this._renderCellColors();
+    this._emitCellColorsChange(color ? 'setRowColor' : 'removeRowColor', { row: row, color: color });
+    return this;
+  };
+
+  InteractiveGrid.prototype.removeRowColor = function (row) {
+    return this.setRowColor(row, null);
+  };
+
+  InteractiveGrid.prototype.getRowColors = function () {
+    var out = {};
+    var keys = Object.keys(this._rowColors);
+    for (var i = 0; i < keys.length; i++) out[keys[i]] = this._rowColors[keys[i]];
+    return out;
+  };
+
+  InteractiveGrid.prototype.setRowColors = function (data, options) {
+    options = options || {};
+    this._rowColors = {};
+    this._loadRowColors(data);
+    this._renderCellColors();
+    if (!options.silent) this._emitCellColorsChange('setRowColors', null);
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearRowColors = function (options) {
+    return this.setRowColors({}, options);
+  };
+
+  InteractiveGrid.prototype.setColumnColor = function (column, color) {
+    column = this._validateVisualColumn(column, 'setColumnColor');
+    color = this._normalizeGridColor(color);
+    if (color) this._columnColors[column] = color;
+    else delete this._columnColors[column];
+    this._renderCellColors();
+    this._emitCellColorsChange(color ? 'setColumnColor' : 'removeColumnColor', { column: column, color: color });
+    return this;
+  };
+
+  InteractiveGrid.prototype.removeColumnColor = function (column) {
+    return this.setColumnColor(column, null);
+  };
+
+  InteractiveGrid.prototype.getColumnColors = function () {
+    var out = {};
+    var keys = Object.keys(this._columnColors);
+    for (var i = 0; i < keys.length; i++) out[keys[i]] = this._columnColors[keys[i]];
+    return out;
+  };
+
+  InteractiveGrid.prototype.setColumnColors = function (data, options) {
+    options = options || {};
+    this._columnColors = {};
+    this._loadColumnColors(data);
+    this._renderCellColors();
+    if (!options.silent) this._emitCellColorsChange('setColumnColors', null);
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearColumnColors = function (options) {
+    return this.setColumnColors({}, options);
+  };
+
+  InteractiveGrid.prototype.getGridColors = function () {
+    return {
+      cellColors: this.getCellColors(),
+      rowColors: this.getRowColors(),
+      columnColors: this.getColumnColors()
+    };
+  };
+
+  InteractiveGrid.prototype.setGridColors = function (data, options) {
+    options = options || {};
+    data = data || {};
+    this._cellColors = {};
+    this._rowColors = {};
+    this._columnColors = {};
+    this._loadColumnColors(data.columnColors);
+    this._loadRowColors(data.rowColors);
+    this._loadCellColors(data.cellColors);
+    this._renderCellColors();
+    if (!options.silent) this._emitCellColorsChange('setGridColors', null);
+    return this;
+  };
+
+  InteractiveGrid.prototype.clearGridColors = function (options) {
+    return this.setGridColors({}, options);
+  };
+
   InteractiveGrid.prototype.getAllData = function () {
     return {
       points: this.getData(),
@@ -2539,6 +2858,7 @@
       verticalTexts: this.getVerticalTexts(),
       columnLayout: this.getColumnLayout(),
       rowLayout: this.getRowLayout(),
+      gridColors: this.getGridColors(),
       timeData: this.getTimeData(),
       notes: this.getNotes(),
       viewConfig: {
@@ -2564,6 +2884,7 @@
     if (state.verticalTexts != null) this.setVerticalTexts(state.verticalTexts);
     if (state.columnLayout != null) this.setColumnLayout(state.columnLayout);
     if (state.rowLayout != null) this.setRowLayout(state.rowLayout);
+    if (state.gridColors != null) this.setGridColors(state.gridColors, { silent: true });
     if (state.viewConfig && state.viewConfig.showTimeTable != null) {
       this.setShowTimeTable(state.viewConfig.showTimeTable);
     }
@@ -3323,6 +3644,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.8.1';
+  InteractiveGrid.VERSION = '2.9.0';
   return InteractiveGrid;
 });
