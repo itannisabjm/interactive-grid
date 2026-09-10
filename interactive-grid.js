@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.8.0
+/* InteractiveGrid v2.8.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -774,9 +774,13 @@
         '</div>' +
         '<div class="ig-menu-section ig-note-section">' +
           '<div class="ig-menu-title">Catatan koordinat</div>' +
-          '<button type="button" class="ig-note-action ig-note-create" data-note-action="create">Buat Note</button>' +
-          '<button type="button" class="ig-note-action ig-note-edit" data-note-action="edit">Edit Note</button>' +
-          '<button type="button" class="ig-note-action ig-note-delete" data-note-action="delete">Hapus Note</button>' +
+          '<div class="ig-note-actions-row">' +
+            '<div class="ig-note-actions-left">' +
+              '<button type="button" class="ig-note-action ig-note-create" data-note-action="create">Buat Note</button>' +
+              '<button type="button" class="ig-note-action ig-note-edit" data-note-action="edit">Edit Note</button>' +
+            '</div>' +
+            '<button type="button" class="ig-note-action ig-note-delete" data-note-action="delete">Hapus Note</button>' +
+          '</div>' +
         '</div>' +
       '</div>' +
       '<div class="ig-note-editor" role="dialog" aria-label="Editor catatan">' +
@@ -3319,6 +3323,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.8.0';
+  InteractiveGrid.VERSION = '2.8.1';
   return InteractiveGrid;
 });

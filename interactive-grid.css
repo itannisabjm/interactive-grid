@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.8.0 - framework agnostic */
+/* InteractiveGrid v2.8.1 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -343,6 +343,28 @@
   display: none;
 }
 
+/* Tombol note disusun dalam satu baris:
+   Buat/Edit di kiri, Hapus di kanan. */
+.ig-note-section > .ig-menu-title {
+  width: 100%;
+}
+
+.ig-note-actions-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ig-note-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .ig-note-action {
   min-height: 32px;
   padding: 0 9px;
@@ -353,6 +375,7 @@
   align-items: center;
   justify-content: center;
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .ig-note-action:hover {
@@ -360,6 +383,7 @@
 }
 
 .ig-note-delete {
+  margin-left: auto;
   border-color: #d33;
   color: #b11;
 }
