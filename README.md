@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.8.0**
+**Versi: 2.8.1**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -1316,6 +1316,24 @@ Callback juga tersedia melalui `onDrawingsChange`.
 
 `getAllData()` / `toFullJSON()` menyertakan `drawings` agar seluruh seri dapat disimpan dan dimuat kembali.
 
+
+### Tata letak tombol note
+
+Pada koordinat yang sudah memiliki catatan, tombol note sekarang disusun sejajar dalam satu baris: **Edit Note di kiri** dan **Hapus Note di kanan**. Pada koordinat yang belum memiliki catatan, **Buat Note** tetap berada di sisi kiri.
+
+Contoh:
+
+```text
+Catatan koordinat
+[ Edit Note ]                 [ Hapus Note ]
+```
+
+atau jika belum ada note:
+
+```text
+Catatan koordinat
+[ Buat Note ]
+```
 
 ### Catatan pada koordinat: `showNotes`
 
@@ -3090,7 +3108,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.8.0
+console.log(InteractiveGrid.VERSION); // 2.8.1
 ```
 
 ## Lisensi
@@ -3122,6 +3140,15 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.8.1
+- Merapikan tata letak tombol pada bagian `Catatan koordinat`.
+- `Buat Note` atau `Edit Note` ditempatkan di sisi kiri.
+- `Hapus Note` ditempatkan di sisi kanan.
+- Saat `Edit Note` dan `Hapus Note` sama-sama tampil, keduanya kini sejajar pada satu baris.
+- Menambahkan jarak kecil di atas baris tombol note agar tidak terlalu menempel pada judul.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.8.0
 - Menambahkan properti `tableAlign` untuk mengatur posisi horizontal seluruh tabel/chart.
