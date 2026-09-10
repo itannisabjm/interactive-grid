@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.3.0**
+**Versi: 2.4.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -26,6 +26,7 @@ Fitur utama:
 - Label sumbu X dapat dioverride secara dinamis dengan `xLabels` tanpa mengubah koordinat asli.
 - Setiap cell tabel waktu dapat diisi jam. `showTimePicker: true` memakai time picker browser + input manual, sedangkan `false` memakai input teks manual berformat `HH:MM`.
 - Mendukung **catatan per koordinat** melalui `showNotes`; menu penanda otomatis menampilkan `Buat Note`, `Edit Note`, atau `Hapus Note` sesuai kondisi.
+- Note dapat menunjukkan koordinat asal dengan **triangle pointer**, garis, atau titik anchor; default menggunakan triangle + anchor dot.
 - Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
@@ -1070,9 +1071,96 @@ const grid = new InteractiveGrid('#grafik', {
   showNotes: true,
   noteWidth: 220,
   noteMinHeight: 86,
-  notePlaceholder: 'Tulis catatan...'
+  notePlaceholder: 'Tulis catatan...',
+
+  notePointer: true,
+  notePointerType: 'triangle',
+  notePointerColor: '#111111',
+  notePointerSize: 14,
+
+  showNoteAnchorDot: true,
+  noteAnchorDotColor: '#111111',
+  noteAnchorDotSize: 4,
+
+  notePosition: 'auto'
 });
 ```
+
+### Pointer note ke koordinat
+
+Secara default note sekarang menggunakan **segitiga penunjuk + titik kecil di koordinat**:
+
+```javascript
+notePointer: true,
+notePointerType: 'triangle',
+notePointerColor: '#111111',
+notePointerSize: 14,
+
+showNoteAnchorDot: true,
+noteAnchorDotColor: '#111111',
+noteAnchorDotSize: 4,
+
+notePosition: 'auto'
+```
+
+Mode pointer yang tersedia:
+
+```javascript
+notePointerType: 'triangle' // segitiga dari border note ke arah koordinat
+notePointerType: 'line'     // garis dari note ke koordinat
+notePointerType: 'dot'      // hanya titik pada koordinat
+notePointerType: 'none'     // tanpa pointer
+```
+
+`notePosition: 'auto'` akan memilih sisi kanan atau kiri berdasarkan ruang yang tersedia. Dapat dipaksa:
+
+```javascript
+notePosition: 'right'
+notePosition: 'left'
+```
+
+Contoh hanya garis:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  showNotes: true,
+  notePointer: true,
+  notePointerType: 'line',
+  notePointerColor: '#444',
+  showNoteAnchorDot: true,
+  noteAnchorDotColor: '#e11d48',
+  noteAnchorDotSize: 4
+});
+```
+
+Contoh hanya titik:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  showNotes: true,
+  notePointerType: 'dot',
+  showNoteAnchorDot: true,
+  noteAnchorDotColor: '#2563eb',
+  noteAnchorDotSize: 5
+});
+```
+
+API runtime:
+
+```javascript
+grid.setNotePointer(true);
+grid.getNotePointer();
+
+grid.setNotePointerType('triangle');
+grid.getNotePointerType();
+
+grid.setShowNoteAnchorDot(true);
+grid.getShowNoteAnchorDot();
+
+grid.setNotePosition('auto');
+grid.getNotePosition();
+```
+
 
 API yang tersedia:
 
@@ -2691,7 +2779,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.3.0
+console.log(InteractiveGrid.VERSION); // 2.4.0
 ```
 
 ## Lisensi
@@ -2723,6 +2811,19 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.4.0
+- Menambahkan penanda hubungan antara note dan titik koordinat.
+- Default note menggunakan `notePointerType: 'triangle'` dengan `notePointer: true`.
+- Menambahkan titik anchor koordinat melalui `showNoteAnchorDot: true`.
+- Mendukung pointer `triangle`, `line`, `dot`, dan `none`.
+- Menambahkan opsi `notePointerColor`, `notePointerSize`, `noteAnchorDotColor`, dan `noteAnchorDotSize`.
+- Menambahkan `notePosition: 'auto'` yang memilih posisi kanan/kiri berdasarkan ruang; juga mendukung `right` dan `left`.
+- Menambahkan API `setNotePointer()`, `getNotePointer()`, `setNotePointerType()`, `getNotePointerType()`, `setShowNoteAnchorDot()`, `getShowNoteAnchorDot()`, `setNotePosition()`, dan `getNotePosition()`.
+- Posisi layer note sekarang diselaraskan dengan top padding grid sehingga pointer, titik anchor, dan koordinat tetap tepat.
+- `getAllData()` / `toFullJSON()` menyimpan konfigurasi pointer note di `viewConfig`.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.3.0
 - Menambahkan fitur catatan per koordinat melalui properti `showNotes`.
