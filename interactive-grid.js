@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.3.0
+/* InteractiveGrid v2.4.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -97,6 +97,17 @@
     noteWidth: 220,
     noteMinHeight: 86,
     notePlaceholder: 'Tulis catatan...',
+
+    // Penanda hubungan note dengan koordinat.
+    notePointer: true,
+    notePointerType: 'triangle', // triangle | line | dot | none
+    notePointerColor: '#111111',
+    notePointerSize: 14,
+    showNoteAnchorDot: true,
+    noteAnchorDotColor: '#111111',
+    noteAnchorDotSize: 4,
+    notePosition: 'auto', // auto | right | left
+
     onNotesChange: null,
 
     showToolbar: true,
@@ -814,6 +825,10 @@
     this.dom.overlay.style.width = gridW + 'px';
     this.dom.overlay.style.height = gridH + 'px';
 
+    this.dom.notesLayer.style.top = topPad + 'px';
+    this.dom.notesLayer.style.width = gridW + 'px';
+    this.dom.notesLayer.style.height = gridH + 'px';
+
     this.dom.verticalTexts.style.top = topPad + 'px';
     this.dom.verticalTexts.style.width = verticalTextW + 'px';
     this.dom.verticalTexts.style.height = gridH + 'px';
@@ -1088,10 +1103,22 @@
 
   InteractiveGrid.prototype._renderNotes = function () {
     if (!this.dom || !this.dom.notesLayer) return;
+
     var layer = this.dom.notesLayer;
     layer.innerHTML = '';
 
     if (!this.options.showNotes) return;
+
+    var gridW = this._metrics ? this._metrics.gridW : this._gridWidth || 0;
+    var gridH = this._metrics ? this._metrics.gridH : this._gridHeight || 0;
+
+    // SVG khusus pointer/garis/titik anchor note.
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'ig-note-connectors');
+    svg.setAttribute('width', gridW);
+    svg.setAttribute('height', gridH);
+    svg.setAttribute('viewBox', '0 0 ' + gridW + ' ' + gridH);
+    layer.appendChild(svg);
 
     var keys = Object.keys(this.notes);
     for (var i = 0; i < keys.length; i++) {
@@ -1101,16 +1128,97 @@
       var internal = this._internalXY(note.x, note.y);
       var p = this._coords(internal.x, internal.y);
 
+      var noteWidth = Number(this.options.noteWidth) > 0 ? Number(this.options.noteWidth) : 220;
+      var noteMinHeight = Number(this.options.noteMinHeight) > 0 ? Number(this.options.noteMinHeight) : 86;
+      var pointerSize = Number(this.options.notePointerSize) > 0 ? Number(this.options.notePointerSize) : 14;
+      var pointerColor = this.options.notePointerColor || '#111111';
+
+      // Pilih sisi note. Auto mencoba kanan, lalu kiri jika ruang kanan tidak cukup.
+      var requestedPosition = String(this.options.notePosition || 'auto').toLowerCase();
+      var side = requestedPosition === 'left' ? 'left' : 'right';
+
+      if (requestedPosition === 'auto') {
+        var roomRight = gridW - p.px;
+        var roomLeft = p.px;
+        side = roomRight >= noteWidth + pointerSize + 16 || roomRight >= roomLeft ? 'right' : 'left';
+      }
+
+      var gap = Math.max(10, Math.ceil(pointerSize * 0.75));
+      var cardLeft = side === 'right'
+        ? p.px + gap
+        : p.px - noteWidth - gap;
+
+      // Jaga card tetap sedekat mungkin dengan area grid.
+      if (cardLeft < 0) cardLeft = 0;
+      if (cardLeft + noteWidth > gridW) cardLeft = Math.max(0, gridW - noteWidth);
+
+      var cardTop = p.py - 10;
+      if (cardTop < 0) cardTop = 0;
+      if (cardTop + noteMinHeight > gridH) cardTop = Math.max(0, gridH - noteMinHeight);
+
       var card = document.createElement('div');
-      card.className = 'ig-note-card';
+      card.className = 'ig-note-card ig-note-card-' + side;
       card.setAttribute('data-note-x', note.x);
       card.setAttribute('data-note-y', note.y);
-      card.style.left = (p.px + 10) + 'px';
-      card.style.top = (p.py - 10) + 'px';
-      card.style.width = Number(this.options.noteWidth) > 0 ? Number(this.options.noteWidth) + 'px' : '220px';
-      card.style.minHeight = Number(this.options.noteMinHeight) > 0 ? Number(this.options.noteMinHeight) + 'px' : '86px';
+      card.style.left = cardLeft + 'px';
+      card.style.top = cardTop + 'px';
+      card.style.width = noteWidth + 'px';
+      card.style.minHeight = noteMinHeight + 'px';
       card.textContent = note.text;
       layer.appendChild(card);
+
+      var pointerEnabled = this.options.notePointer !== false;
+      var pointerType = String(this.options.notePointerType || 'triangle').toLowerCase();
+      if (['triangle', 'line', 'dot', 'none'].indexOf(pointerType) < 0) pointerType = 'triangle';
+
+      // Titik anchor dapat berdiri sendiri atau dipakai bersama triangle/line.
+      var showAnchor = !!this.options.showNoteAnchorDot || pointerType === 'dot';
+      if (showAnchor) {
+        var dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', p.px);
+        dot.setAttribute('cy', p.py);
+        dot.setAttribute('r', Number(this.options.noteAnchorDotSize) > 0 ? Number(this.options.noteAnchorDotSize) : 4);
+        dot.setAttribute('fill', this.options.noteAnchorDotColor || pointerColor);
+        dot.setAttribute('class', 'ig-note-anchor-dot');
+        svg.appendChild(dot);
+      }
+
+      if (!pointerEnabled || pointerType === 'none' || pointerType === 'dot') continue;
+
+      // Titik sambungan berada di sisi card yang menghadap koordinat.
+      var edgeX = side === 'right' ? cardLeft : cardLeft + noteWidth;
+      var edgeY = Math.max(cardTop + 10, Math.min(p.py, cardTop + noteMinHeight - 10));
+
+      if (pointerType === 'line') {
+        var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', p.px);
+        line.setAttribute('y1', p.py);
+        line.setAttribute('x2', edgeX);
+        line.setAttribute('y2', edgeY);
+        line.setAttribute('stroke', pointerColor);
+        line.setAttribute('stroke-width', '2');
+        line.setAttribute('class', 'ig-note-pointer-line');
+        svg.appendChild(line);
+      } else if (pointerType === 'triangle') {
+        var half = pointerSize / 2;
+        var baseX = edgeX;
+        var tipX = side === 'right'
+          ? Math.max(p.px + 1, edgeX - pointerSize)
+          : Math.min(p.px - 1, edgeX + pointerSize);
+
+        var polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        polygon.setAttribute(
+          'points',
+          tipX + ',' + p.py + ' ' +
+          baseX + ',' + (edgeY - half) + ' ' +
+          baseX + ',' + (edgeY + half)
+        );
+        polygon.setAttribute('fill', '#ffffff');
+        polygon.setAttribute('stroke', pointerColor);
+        polygon.setAttribute('stroke-width', '2');
+        polygon.setAttribute('class', 'ig-note-pointer-triangle');
+        svg.appendChild(polygon);
+      }
     }
   };
 
@@ -1886,6 +1994,54 @@
     return this;
   };
 
+  InteractiveGrid.prototype.setNotePointer = function (show) {
+    this.options.notePointer = !!show;
+    this._renderNotes();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getNotePointer = function () {
+    return !!this.options.notePointer;
+  };
+
+  InteractiveGrid.prototype.setNotePointerType = function (type) {
+    type = String(type || '').toLowerCase();
+    if (['triangle', 'line', 'dot', 'none'].indexOf(type) < 0) {
+      throw new Error('InteractiveGrid.setNotePointerType: type harus triangle, line, dot, atau none.');
+    }
+    this.options.notePointerType = type;
+    this._renderNotes();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getNotePointerType = function () {
+    return this.options.notePointerType;
+  };
+
+  InteractiveGrid.prototype.setShowNoteAnchorDot = function (show) {
+    this.options.showNoteAnchorDot = !!show;
+    this._renderNotes();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getShowNoteAnchorDot = function () {
+    return !!this.options.showNoteAnchorDot;
+  };
+
+  InteractiveGrid.prototype.setNotePosition = function (position) {
+    position = String(position || '').toLowerCase();
+    if (['auto', 'right', 'left'].indexOf(position) < 0) {
+      throw new Error('InteractiveGrid.setNotePosition: position harus auto, right, atau left.');
+    }
+    this.options.notePosition = position;
+    this._renderNotes();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getNotePosition = function () {
+    return this.options.notePosition;
+  };
+
   InteractiveGrid.prototype.setShowNotes = function (show) {
     this.options.showNotes = !!show;
     this._renderNotes();
@@ -1914,6 +2070,10 @@
         showTimePicker: !!this.options.showTimePicker,
         showStatus: !!this.options.showStatus,
         showNotes: !!this.options.showNotes,
+        notePointer: !!this.options.notePointer,
+        notePointerType: this.options.notePointerType,
+        showNoteAnchorDot: !!this.options.showNoteAnchorDot,
+        notePosition: this.options.notePosition,
         xLabels: this.getXLabels()
       }
     };
@@ -1942,6 +2102,19 @@
     if (state.viewConfig && state.viewConfig.showNotes != null) {
       this.setShowNotes(state.viewConfig.showNotes);
     }
+    if (state.viewConfig && state.viewConfig.notePointer != null) {
+      this.options.notePointer = !!state.viewConfig.notePointer;
+    }
+    if (state.viewConfig && state.viewConfig.notePointerType != null) {
+      this.options.notePointerType = state.viewConfig.notePointerType;
+    }
+    if (state.viewConfig && state.viewConfig.showNoteAnchorDot != null) {
+      this.options.showNoteAnchorDot = !!state.viewConfig.showNoteAnchorDot;
+    }
+    if (state.viewConfig && state.viewConfig.notePosition != null) {
+      this.options.notePosition = state.viewConfig.notePosition;
+    }
+    this._renderNotes();
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
     return this;
   };
@@ -2595,6 +2768,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.3.0';
+  InteractiveGrid.VERSION = '2.4.0';
   return InteractiveGrid;
 });

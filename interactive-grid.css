@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.3.0 - framework agnostic */
+/* InteractiveGrid v2.4.0 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -265,8 +265,24 @@
   z-index: 6;
 }
 
+.ig-note-connectors {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ig-note-anchor-dot,
+.ig-note-pointer-line,
+.ig-note-pointer-triangle {
+  pointer-events: none;
+}
+
 .ig-note-card {
   position: absolute;
+  z-index: 2;
   background: rgba(255,255,255,.96);
   border: 1px solid #c9c9c9;
   box-shadow: 0 2px 8px rgba(0,0,0,.14);
