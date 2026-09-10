@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.7.0 - framework agnostic */
+/* InteractiveGrid v2.8.0 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -69,12 +69,29 @@
 }
 .ig-toolbar button:hover { background: #f1f1f1; }
 
-.ig-scroll { overflow-x: auto; padding: 2px 2px 8px; }
+.ig-scroll {
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+}
+
+.ig-scroll.ig-table-left .ig-chart {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.ig-scroll.ig-table-center .ig-chart {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ig-scroll.ig-table-right .ig-chart {
+  margin-left: auto;
+  margin-right: 0;
+}
 
 .ig-chart {
   position: relative;
   background: var(--ig-bg);
-  margin: 0;
 }
 
 .ig-grid {

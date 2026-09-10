@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.7.0**
+**Versi: 2.8.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -30,6 +30,7 @@ Fitur utama:
 - Mendukung **multi drawing / multi series**: tombol `Draw` membuat seri baru sehingga garis antar seri tidak saling terhubung.
 - Properti `clickDrawToDraw` menentukan apakah user wajib menekan `Draw` sebelum dapat menambah/menghapus marker.
 - Posisi toolbar dapat diatur dengan `toolbarAlign: 'left' | 'center' | 'right'`; default tetap `left`.
+- Posisi tabel/chart dapat diatur dengan `tableAlign: 'left' | 'center' | 'right'`; default `center`.
 - Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
@@ -1058,6 +1059,83 @@ Membaca posisi toolbar:
 ```javascript
 const posisi = grid.getToolbarAlign();
 ```
+
+
+### Posisi tabel: `tableAlign`
+
+Tabel/chart utama sekarang dapat diatur posisinya secara horizontal di dalam container.
+
+Default:
+
+```javascript
+tableAlign: 'center'
+```
+
+Jadi tanpa konfigurasi tambahan, tabel akan berada di tengah container.
+
+Contoh posisi tengah:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  tableAlign: 'center'
+});
+```
+
+Untuk menempatkan tabel di kiri:
+
+```javascript
+tableAlign: 'left'
+```
+
+Untuk menempatkan tabel di kanan:
+
+```javascript
+tableAlign: 'right'
+```
+
+Nilai yang didukung:
+
+```text
+left
+center
+right
+```
+
+Pengaturan ini memindahkan **seluruh chart sebagai satu kesatuan**, termasuk grid utama, label X/Y, vertical text, tabel Waktu, marker, drawing, permanent line, note, dan popup yang berada di dalam chart.
+
+`tableAlign` bekerja terpisah dari `toolbarAlign`. Contohnya toolbar dapat tetap di kiri sementara tabel berada di tengah:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  toolbarAlign: 'left',
+  tableAlign: 'center'
+});
+```
+
+Atau keduanya di tengah:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  toolbarAlign: 'center',
+  tableAlign: 'center'
+});
+```
+
+Posisi tabel juga dapat diubah saat runtime:
+
+```javascript
+grid.setTableAlign('left');
+grid.setTableAlign('center');
+grid.setTableAlign('right');
+```
+
+Membaca posisi tabel saat ini:
+
+```javascript
+const posisi = grid.getTableAlign();
+```
+
+Jika lebar chart lebih besar daripada container, area tetap dapat di-scroll secara horizontal seperti sebelumnya.
 
 
 ### Multi drawing / multi series
@@ -3012,7 +3090,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.7.0
+console.log(InteractiveGrid.VERSION); // 2.8.0
 ```
 
 ## Lisensi
@@ -3044,6 +3122,18 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.8.0
+- Menambahkan properti `tableAlign` untuk mengatur posisi horizontal seluruh tabel/chart.
+- Mendukung nilai `left`, `center`, dan `right`.
+- Default adalah `tableAlign: 'center'`.
+- `tableAlign` bekerja independen dari `toolbarAlign`, sehingga posisi toolbar dan tabel dapat berbeda.
+- Posisi seluruh komponen chart ikut berpindah bersama tabel: grid, sumbu, vertical text, tabel Waktu, marker, drawing, permanent line, dan note.
+- Menambahkan API `setTableAlign()` dan `getTableAlign()`.
+- `getAllData()` / `toFullJSON()` menyimpan `viewConfig.tableAlign`, dan `setAllData()` / `fromFullJSON()` dapat memuatnya kembali.
+- Horizontal scroll tetap tersedia jika chart lebih lebar daripada container.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.7.0
 - Menambahkan properti `toolbarAlign`.

@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.7.0
+/* InteractiveGrid v2.8.0
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -118,6 +118,10 @@
     // Posisi isi toolbar: left | center | right.
     // Default tetap left agar kompatibel dengan tampilan sebelumnya.
     toolbarAlign: 'left',
+
+    // Posisi tabel/chart di dalam container: left | center | right.
+    // Default center.
+    tableAlign: 'center',
 
     // Multi drawing / multi series.
     showDrawControls: true,
@@ -339,6 +343,10 @@
     var toolbarAlign = String(this.options.toolbarAlign || 'left').toLowerCase();
     if (['left', 'center', 'right'].indexOf(toolbarAlign) < 0) toolbarAlign = 'left';
     this.options.toolbarAlign = toolbarAlign;
+
+    var tableAlign = String(this.options.tableAlign || 'center').toLowerCase();
+    if (['left', 'center', 'right'].indexOf(tableAlign) < 0) tableAlign = 'center';
+    this.options.tableAlign = tableAlign;
 
     this._build();
     this._bindEvents();
@@ -789,6 +797,7 @@
       stopDraw: toolbar.querySelector('.ig-stop-draw'),
       undo: toolbar.querySelector('.ig-undo'),
       clear: toolbar.querySelector('.ig-clear'),
+      scroll: scroll,
       chart: chart,
       grid: chart.querySelector('.ig-grid'),
       verticalTexts: chart.querySelector('.ig-vertical-texts'),
@@ -822,6 +831,7 @@
     if (!o.showClear) this.dom.clear.classList.add('ig-hidden');
 
     this._applyToolbarAlign();
+    this._applyTableAlign();
     this._updateDrawToolbar();
     this._layout();
     this._renderLabels();
@@ -1180,6 +1190,22 @@
       'ig-toolbar-right'
     );
     this.dom.toolbar.classList.add('ig-toolbar-' + align);
+    return this;
+  };
+
+  InteractiveGrid.prototype._applyTableAlign = function () {
+    if (!this.dom || !this.dom.scroll || !this.dom.chart) return this;
+
+    var align = String(this.options.tableAlign || 'center').toLowerCase();
+    if (['left', 'center', 'right'].indexOf(align) < 0) align = 'center';
+
+    this.options.tableAlign = align;
+    this.dom.scroll.classList.remove(
+      'ig-table-left',
+      'ig-table-center',
+      'ig-table-right'
+    );
+    this.dom.scroll.classList.add('ig-table-' + align);
     return this;
   };
 
@@ -2518,6 +2544,7 @@
         showNotes: !!this.options.showNotes,
         clickDrawToDraw: !!this.options.clickDrawToDraw,
         toolbarAlign: this.options.toolbarAlign,
+        tableAlign: this.options.tableAlign,
         notePointer: !!this.options.notePointer,
         notePointerType: this.options.notePointerType,
         showNoteAnchorDot: !!this.options.showNoteAnchorDot,
@@ -2559,6 +2586,12 @@
         this.options.toolbarAlign = restoredToolbarAlign;
       }
     }
+    if (state.viewConfig && state.viewConfig.tableAlign != null) {
+      var restoredTableAlign = String(state.viewConfig.tableAlign).toLowerCase();
+      if (['left', 'center', 'right'].indexOf(restoredTableAlign) >= 0) {
+        this.options.tableAlign = restoredTableAlign;
+      }
+    }
     if (state.viewConfig && state.viewConfig.notePointer != null) {
       this.options.notePointer = !!state.viewConfig.notePointer;
     }
@@ -2573,6 +2606,7 @@
     }
     this._renderNotes();
     this._applyToolbarAlign();
+    this._applyTableAlign();
     this._updateDrawToolbar();
     if (state.drawings != null) this.setDrawings(state.drawings, { silent: true });
     this.setData(Array.isArray(state.points) ? state.points : [], options || {});
@@ -2995,6 +3029,22 @@
     return this;
   };
 
+  InteractiveGrid.prototype.setTableAlign = function (align) {
+    align = String(align || '').toLowerCase();
+
+    if (['left', 'center', 'right'].indexOf(align) < 0) {
+      throw new Error('InteractiveGrid.setTableAlign: align harus left, center, atau right.');
+    }
+
+    this.options.tableAlign = align;
+    this._applyTableAlign();
+    return this;
+  };
+
+  InteractiveGrid.prototype.getTableAlign = function () {
+    return this.options.tableAlign;
+  };
+
   InteractiveGrid.prototype.setToolbarAlign = function (align) {
     align = String(align || '').toLowerCase();
 
@@ -3269,6 +3319,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.7.0';
+  InteractiveGrid.VERSION = '2.8.0';
   return InteractiveGrid;
 });
