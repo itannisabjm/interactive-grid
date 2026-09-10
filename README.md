@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.8.1**
+**Versi: 2.9.0**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -31,6 +31,7 @@ Fitur utama:
 - Properti `clickDrawToDraw` menentukan apakah user wajib menekan `Draw` sebelum dapat menambah/menghapus marker.
 - Posisi toolbar dapat diatur dengan `toolbarAlign: 'left' | 'center' | 'right'`; default tetap `left`.
 - Posisi tabel/chart dapat diatur dengan `tableAlign: 'left' | 'center' | 'right'`; default `center`.
+- Background grid dapat diberi warna per-cell, per-baris, atau per-kolom; default tanpa warna.
 - Posisi angka sumbu X digeser sedikit ke kiri secara default agar tidak tertutup garis vertikal; besar pergeseran dapat diatur dengan `xLabelOffset`.
 - **Permanent line/reference line**: garis tetap antara tepat 2 koordinat, marker ujung `dot`/`x`, teks mengikuti kemiringan garis, serta pengaturan warna/ukuran garis, teks, dan marker.
 - Event `interactivegrid:change` dan callback `onChange`.
@@ -1059,6 +1060,170 @@ Membaca posisi toolbar:
 ```javascript
 const posisi = grid.getToolbarAlign();
 ```
+
+
+### Warna cell, baris, dan kolom grid
+
+Setiap cell pada grid sekarang dapat diberi warna background. Default-nya **tidak ada warna tambahan**, sehingga tampilan grid tetap sama seperti versi sebelumnya.
+
+Visual cell menggunakan nomor 1-based:
+
+- `column: 1` = cell antara titik X pertama dan X kedua.
+- `row: 1` = cell paling bawah, yaitu antara Y pertama dan Y kedua.
+
+#### Warna satu cell
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  cellColors: {
+    '3,2': '#fff3cd',
+    '5,4': '#d4edda'
+  }
+});
+```
+
+Format key `3,2` berarti **kolom 3, baris 2**.
+
+Bisa juga menggunakan array:
+
+```javascript
+cellColors: [
+  { column: 3, row: 2, color: '#fff3cd' },
+  { column: 5, row: 4, color: '#d4edda' }
+]
+```
+
+#### Warna satu baris penuh
+
+```javascript
+rowColors: {
+  2: '#fff3cd',
+  5: '#d4edda'
+}
+```
+
+`rowColors[2]` akan mewarnai seluruh cell pada baris ke-2 dari bawah.
+
+#### Warna satu kolom penuh
+
+```javascript
+columnColors: {
+  3: '#d1ecf1',
+  7: '#f8d7da'
+}
+```
+
+`columnColors[3]` akan mewarnai seluruh cell pada kolom visual ke-3 dari kiri.
+
+Ketiga metode dapat digunakan sekaligus:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  columnColors: {
+    3: '#d1ecf1'
+  },
+  rowColors: {
+    2: '#fff3cd'
+  },
+  cellColors: {
+    '3,2': '#ff9800'
+  }
+});
+```
+
+Jika warna bertumpuk, prioritasnya adalah:
+
+```text
+warna cell
+   > warna baris
+      > warna kolom
+         > background default grid
+```
+
+Jadi pada contoh tersebut, cell `3,2` akan memakai `#ff9800` meskipun baris 2 dan kolom 3 juga mempunyai warna.
+
+API runtime:
+
+```javascript
+// Satu cell
+grid.setCellColor(3, 2, '#fff3cd');
+grid.getCellColor(3, 2);
+grid.removeCellColor(3, 2);
+
+// Satu baris penuh
+grid.setRowColor(2, '#d4edda');
+grid.removeRowColor(2);
+
+// Satu kolom penuh
+grid.setColumnColor(3, '#d1ecf1');
+grid.removeColumnColor(3);
+```
+
+Mengatur banyak warna sekaligus:
+
+```javascript
+grid.setCellColors({
+  '2,1': '#fff3cd',
+  '4,3': '#f8d7da'
+});
+
+grid.setRowColors({
+  1: '#eeeeee',
+  4: '#d4edda'
+});
+
+grid.setColumnColors({
+  2: '#d1ecf1',
+  8: '#fff3cd'
+});
+```
+
+Mendapatkan seluruh konfigurasi warna:
+
+```javascript
+const colors = grid.getGridColors();
+
+// {
+//   cellColors: { '3,2': '#ff9800' },
+//   rowColors: { 2: '#fff3cd' },
+//   columnColors: { 3: '#d1ecf1' }
+// }
+```
+
+Menghapus warna:
+
+```javascript
+grid.clearCellColors();   // hanya override per-cell
+grid.clearRowColors();    // hanya warna baris
+grid.clearColumnColors(); // hanya warna kolom
+grid.clearGridColors();   // semua warna grid
+```
+
+Warna mengikuti ukuran `colWidth`, `rowHeight`, `columnsConfig`, dan `rowsConfig`, sehingga cell berukuran custom tetap terisi tepat sesuai batas grid.
+
+Perubahan warna menghasilkan event:
+
+```javascript
+document.querySelector('#grafik').addEventListener(
+  'interactivegrid:cellcolorschange',
+  function (e) {
+    console.log(e.detail.reason);
+    console.log(e.detail.colors);
+  }
+);
+```
+
+Callback juga dapat digunakan:
+
+```javascript
+const grid = new InteractiveGrid('#grafik', {
+  onCellColorsChange(colors, reason, detail) {
+    console.log(colors, reason, detail);
+  }
+});
+```
+
+Konfigurasi warna ikut disimpan oleh `getAllData()` / `toFullJSON()` pada properti `gridColors` dan dapat dimuat kembali melalui `setAllData()` / `fromFullJSON()`.
 
 
 ### Posisi tabel: `tableAlign`
@@ -3108,7 +3273,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.8.1
+console.log(InteractiveGrid.VERSION); // 2.9.0
 ```
 
 ## Lisensi
@@ -3140,6 +3305,22 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.9.0
+- Menambahkan warna background per-cell melalui `cellColors`.
+- Menambahkan warna satu baris penuh melalui `rowColors`.
+- Menambahkan warna satu kolom penuh melalui `columnColors`.
+- Default semua warna adalah kosong/tanpa warna tambahan.
+- Prioritas warna: per-cell > per-baris > per-kolom > background grid default.
+- Warna mengikuti geometri dinamis `colWidth`, `rowHeight`, `columnsConfig`, dan `rowsConfig`.
+- Menambahkan API `setCellColor()`, `getCellColor()`, `removeCellColor()`, `setCellColors()`, dan `clearCellColors()`.
+- Menambahkan API `setRowColor()`, `removeRowColor()`, `setRowColors()`, `getRowColors()`, dan `clearRowColors()`.
+- Menambahkan API `setColumnColor()`, `removeColumnColor()`, `setColumnColors()`, `getColumnColors()`, dan `clearColumnColors()`.
+- Menambahkan API `getGridColors()`, `setGridColors()`, dan `clearGridColors()`.
+- Menambahkan event `interactivegrid:cellcolorschange` dan callback `onCellColorsChange`.
+- `getAllData()` / `toFullJSON()` menyimpan konfigurasi pada `gridColors` dan `setAllData()` / `fromFullJSON()` memuatnya kembali.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.8.1
 - Merapikan tata letak tombol pada bagian `Catatan koordinat`.
