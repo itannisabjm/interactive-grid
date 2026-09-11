@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.9.0
+/* InteractiveGrid v2.9.1
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -997,6 +997,7 @@
       menuHeaderTitle: chart.querySelector('.ig-menu-header .ig-menu-title'),
       deleteSection: chart.querySelector('.ig-delete-section'),
       noteSection: chart.querySelector('.ig-note-section'),
+      noteSectionTitle: chart.querySelector('.ig-note-section .ig-menu-title'),
       noteCreate: chart.querySelector('.ig-note-create'),
       noteEdit: chart.querySelector('.ig-note-edit'),
       noteDelete: chart.querySelector('.ig-note-delete'),
@@ -1938,14 +1939,21 @@
     this.dom.menu.querySelector('[data-delete-type="x"]').disabled = !hasX;
 
     var markerEditingAllowed = this._canEditMarks();
+    var noteOnlyMode = !markerEditingAllowed && !!this.options.showNotes;
     var addSection = this.dom.menu.querySelector('.ig-add-section') || this.dom.menu.querySelector('.ig-menu-section');
     if (addSection) addSection.style.display = markerEditingAllowed ? '' : 'none';
     this.dom.deleteSection.style.display = markerEditingAllowed && point ? '' : 'none';
 
     // Ketika clickDrawToDraw=true dan belum ada drawing aktif, popup hanya untuk note.
-    // Sembunyikan judul "Tambah tanda" tetapi pertahankan tombol Close.
+    // Ubah judul header menjadi "Catatan koordinat" dan sembunyikan judul note internal
+    // agar tampilan menjadi lebih ringkas dan sejajar dengan tombol Close.
+    this.dom.menu.classList.toggle('ig-menu-note-only', noteOnlyMode);
     if (this.dom.menuHeaderTitle) {
-      this.dom.menuHeaderTitle.style.display = markerEditingAllowed ? '' : 'none';
+      this.dom.menuHeaderTitle.style.display = noteOnlyMode || markerEditingAllowed ? '' : 'none';
+      this.dom.menuHeaderTitle.textContent = noteOnlyMode ? 'Catatan koordinat' : 'Tambah tanda';
+    }
+    if (this.dom.noteSectionTitle) {
+      this.dom.noteSectionTitle.style.display = noteOnlyMode ? 'none' : '';
     }
 
     var note = this._getNoteInternal(cell.x, cell.y);
@@ -1976,6 +1984,9 @@
 
   InteractiveGrid.prototype._hideMenu = function () {
     this.dom.menu.classList.remove('ig-show');
+    this.dom.menu.classList.remove('ig-menu-note-only');
+    if (this.dom.menuHeaderTitle) this.dom.menuHeaderTitle.textContent = 'Tambah tanda';
+    if (this.dom.noteSectionTitle) this.dom.noteSectionTitle.style.display = '';
     this.pendingCell = null;
   };
 
@@ -3644,6 +3655,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.9.0';
+  InteractiveGrid.VERSION = '2.9.1';
   return InteractiveGrid;
 });

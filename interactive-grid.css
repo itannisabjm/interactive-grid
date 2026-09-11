@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.9.0 - framework agnostic */
+/* InteractiveGrid v2.9.1 - framework agnostic */
 .ig-root {
   --ig-cell-w: 54px;
   --ig-cell-h: 42px;
@@ -402,6 +402,14 @@
   border-color: #d33;
   color: #b11;
 }
+.ig-menu.ig-menu-note-only .ig-note-actions-row {
+  margin-top: 0;
+}
+
+.ig-menu.ig-menu-note-only .ig-note-section {
+  margin-top: -2px;
+}
+
 
 .ig-note-editor {
   position: absolute;

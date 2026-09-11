@@ -1,6 +1,6 @@
 # InteractiveGrid
 
-**Versi: 2.9.0**
+**Versi: 2.9.1**
 
 Plugin JavaScript ringan untuk membuat tabel/grafik interaktif berbasis **HTML + CSS + JavaScript murni**, tanpa framework dan tanpa dependency eksternal.
 
@@ -1387,6 +1387,8 @@ Jika `showNotes: true`, koordinat tetap dapat diklik ketika Draw belum aktif unt
 Saat `clickDrawToDraw: true` dan tidak ada drawing aktif, **indikator hijau pada persimpangan grid tetap ditampilkan saat hover**. Indikator ini hanya menunjukkan koordinat yang sedang ditunjuk; marker ●/X tetap tidak dapat dibuat sampai tombol `Draw` diklik.
 
 Jika koordinat diklik ketika drawing belum aktif dan `showNotes: true`, popup hanya menampilkan bagian note beserta tombol `Close`. Teks `Tambah tanda`, pilihan ●/X, dan pilihan hapus marker tidak ditampilkan. Pada koordinat tanpa note tersedia `Buat Note`; pada koordinat yang sudah memiliki note tersedia `Edit Note` dan `Hapus Note`.
+
+Pada kondisi note-only tersebut, judul popup sekarang berubah menjadi **`Catatan koordinat`** dan ditempatkan sejajar dengan tombol **`Close`** pada header. Judul note di bagian isi popup disembunyikan agar tombol `Buat Note` / `Edit Note` / `Hapus Note` naik sedikit ke atas dan tampilan menjadi lebih ringkas.
 
 Pengaturan dapat diubah saat runtime:
 
@@ -3273,7 +3275,7 @@ const gridB = new InteractiveGrid('#grafik-b', { columns: 25, rows: 15 });
 `InteractiveGrid.VERSION`:
 
 ```javascript
-console.log(InteractiveGrid.VERSION); // 2.9.0
+console.log(InteractiveGrid.VERSION); // 2.9.1
 ```
 
 ## Lisensi
@@ -3305,6 +3307,15 @@ Perilaku:
 - Properti ini hanya mengatur urutan/lapisan render penanda biasa pada koordinat yang sama. Data, urutan garis, ukuran, dan warna masing-masing penanda tidak berubah.
 
 ## Changelog
+
+### v2.9.1
+- Merapikan popup mode note-only saat `clickDrawToDraw: true` dan drawing belum aktif.
+- Header popup sekarang menampilkan teks `Catatan koordinat` yang sejajar dengan tombol `Close`.
+- Judul `Catatan koordinat` di dalam section note disembunyikan pada mode note-only agar tidak dobel.
+- Tombol `Buat Note`, `Edit Note`, dan `Hapus Note` naik sedikit ke atas sehingga tampil lebih rapat dan rapi.
+- Saat mode marker aktif kembali, judul header otomatis kembali menjadi `Tambah tanda`.
+- Semua fitur versi sebelumnya tetap kompatibel.
+
 
 ### v2.9.0
 - Menambahkan warna background per-cell melalui `cellColors`.
