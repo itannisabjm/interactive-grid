@@ -1,4 +1,4 @@
-/* InteractiveGrid v2.9.1
+/* InteractiveGrid v2.9.2
  * Framework-agnostic interactive grid chart.
  * Global: window.InteractiveGrid
  * CommonJS: module.exports = InteractiveGrid
@@ -3655,6 +3655,6 @@
     this.destroyed = true;
   };
 
-  InteractiveGrid.VERSION = '2.9.1';
+  InteractiveGrid.VERSION = '2.9.2';
   return InteractiveGrid;
 });
